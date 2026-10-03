@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Framery</title>
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="tokens.css">
+  <link rel="stylesheet" href="chrome.css">
+  <link rel="stylesheet" href="canvas.css">
+  <script>
+  // Before first paint: the saved theme and motion, so a reload never flashes the wrong ones.
+  try {
+    const s = JSON.parse(localStorage.getItem('framery.settings') || '{}');
+    const t = s.theme || 'system';
+    document.documentElement.dataset.theme = t === 'system' ? (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : t;
+    document.documentElement.dataset.motion = s.motion || 'full';
+  } catch {}
+</script>
+</head>
+<body>
+<div class="app" id="app">
+  <aside class="side" id="side" aria-label="Studio">
+    <div class="side__head">
+      <span class="brand"><span class="brand__mark" aria-hidden="true"></span>Framery</span>
+      <button class="icon-btn side__close" id="side-close" type="button" aria-label="Hide sidebar" title="Hide sidebar ( [ )"></button>
+    </div>
+    <select class="projects" id="projects" aria-label="Project" hidden></select>
+    <nav class="pages" id="pages" aria-label="Pages"></nav>
+    <div class="layers" id="layers-box">
+      <div class="layers__head">
+        <span class="eyebrow">Layers</span>
+        <button class="text-btn layers__all" id="layers-all" type="button" hidden>Collapse all</button>
+        <input class="search" id="search" type="search" placeholder="Filter" aria-label="Filter layers" autocomplete="off">
+      </div>
+      <ul class="layers__list" id="layers"></ul>
+    </div>
+    <div class="side__foot">
+      <button class="icon-btn" id="history-btn" type="button" aria-label="History" aria-haspopup="true" aria-expanded="false" title="History"></button>
+      <div class="settings history" id="history" hidden role="dialog" aria-label="History"></div>
+      <button class="icon-btn" id="settings-btn" type="button" aria-label="Settings" aria-haspopup="true" aria-expanded="false" title="Settings"></button>
+      <div class="settings" id="settings" hidden role="dialog" aria-label="Settings"></div>
+    </div>
+  </aside>
+  <main class="stage" id="stage">
+    <button class="icon-btn menu-btn" id="menu" type="button" aria-label="Show sidebar" title="Show sidebar ( [ )"></button>
+    <div class="view" id="view" tabindex="0" aria-label="Canvas. Drag to pan, scroll or pinch to zoom.">
+      <div class="world" id="world"></div>
+      <svg class="arrows" id="arrows"></svg>
+    </div>
+    <div class="zoombar" id="zoombar">
+      <button class="icon-btn" id="zoom-out" type="button" aria-label="Zoom out"></button>
+      <button class="zoom-pct" id="zoom-pct" type="button" aria-label="Zoom to 100 percent">100%</button>
+      <button class="icon-btn" id="zoom-in" type="button" aria-label="Zoom in"></button>
+      <button class="icon-btn" id="zoom-fit" type="button" aria-label="Fit everything"></button>
+    </div>
+    <aside class="inspector" id="inspector" hidden aria-label="Selection"></aside>
+    <p class="empty" id="empty" hidden></p>
+  </main>
+</div>
+<script type="module" src="main.js"></script>
+</body>
+</html>

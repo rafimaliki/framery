@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Preview · Framery</title>
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="tokens.css">
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; min-height: 100dvh; padding: 36px 24px 60px; background: var(--bg); color: var(--ink);
+      font: 14px/1.4 var(--font-ui);
+      background-image: radial-gradient(circle, var(--dot) 1.1px, transparent 1.4px); background-size: 24px 24px;
+    }
+    .cap { margin: 0 auto 18px; text-align: center; color: var(--ink-soft); font: 600 12px var(--font-mono); }
+    .slot { margin: 0 auto; }
+    .device {
+      transform-origin: 0 0; background: var(--surface); overflow: hidden; border-radius: 6px;
+      box-shadow: 0 0 0 3px var(--ink);
+      animation: rise var(--dur-slow) var(--ease) both;
+    }
+    .device[data-device="phone"] { border-radius: 30px; }
+    iframe { display: block; width: 100%; height: 100%; border: 0; }
+    @keyframes rise { from { opacity: 0; transform: translateY(10px) scale(var(--k)); } to { opacity: 1; transform: scale(var(--k)); } }
+  </style>
+</head>
+<body>
+<p class="cap" id="cap"></p>
+<div class="slot" id="slot"></div>
+<script type="module">
+  // A frame, drawn at its own size on the studio's paper: what the canvas shows, one page at a time.
+  import './core/settings.js';
+
+  const q = new URLSearchParams(location.search);
+  const project = q.get('project');
+  const src = q.get('src');
+  const w = Math.max(100, Number(q.get('w')) || 390);
+  const h = Math.max(100, Number(q.get('h')) || 844);
+  const ok = /^[\w.-]+$/.test(project ?? '') && src && !src.startsWith('/') && !src.includes('..') && !src.includes(':');
+  const cap = document.getElementById('cap');
+
+  if (!ok) cap.textContent = 'Nothing to preview.';
+  else {
+    cap.textContent = `${q.get('title') ?? src} · ${w}×${h}`;
+    document.title = `${q.get('title') ?? src} · Framery`;
+    const slot = document.getElementById('slot');
+    const device = document.createElement('div');
+    device.className = 'device';
+    device.dataset.device = q.get('device') ?? 'phone';
+    device.style.cssText = `width:${w}px;height:${h}px`;
+    const frame = document.createElement('iframe');
+    frame.src = `/p/${project}/${src.split('/').map(encodeURIComponent).join('/')}`;
+    frame.title = q.get('title') ?? src;
+    device.append(frame);
+    slot.append(device);
+
+    // Wider than the window: shrink to fit the width, never grow past 100%.
+    const fit = () => {
+      const k = Math.min(1, (innerWidth - 56) / w);
+      device.style.setProperty('--k', k);
+      device.style.transform = `scale(${k})`;
+      slot.style.width = `${w * k}px`;
+      slot.style.height = `${h * k}px`;
+    };
+    fit();
+    addEventListener('resize', fit);
+  }
+</script>
+</body>
+</html>

@@ -1,0 +1,136 @@
+/* The canvas: a dotted viewport, one transformed world, and the arrow overlay in screen space. */
+
+.view {
+  position: absolute; inset: 0; overflow: hidden; touch-action: none; cursor: grab; outline: none;
+  background-color: var(--bg);
+  background-image: radial-gradient(circle, var(--dot) 1.1px, transparent 1.4px);
+  background-size: var(--grid, 24px) var(--grid, 24px);
+  background-position: var(--gx, 0) var(--gy, 0);
+  user-select: none; -webkit-user-select: none;
+}
+.view[data-drag="true"] { cursor: grabbing; }
+.view[hidden] { display: none; }
+
+.world {
+  position: absolute; left: 0; top: 0; width: 0; height: 0;
+  transform-origin: 0 0;
+  --ring: calc(3px / max(var(--z, 1), 0.12));
+}
+.view[data-moving="true"] .world { will-change: transform; }
+.world[data-enter] { animation: world-in var(--dur-slow) var(--ease) both; }
+@keyframes world-in { from { opacity: 0; } to { opacity: 1; } }
+
+/* ---- items ----------------------------------------------------------------------------------- */
+.it { position: absolute; left: 0; top: 0; contain: layout style; }
+.it .lb {
+  position: absolute; left: 0; bottom: 100%; padding-bottom: 7px; width: calc(100% * var(--z, 1));
+  transform-origin: 0 100%; transform: scale(calc(1 / var(--z, 1)));
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; pointer-events: none;
+  font: 600 12px/1.2 var(--font-ui); color: var(--ink-soft);
+  transition: color var(--dur-fast) var(--ease);
+}
+.it .lb b { margin-right: 6px; color: var(--ink); font-family: var(--font-mono); font-weight: 700; }
+.it:hover > .lb, .it.sel > .lb { color: var(--ink); }
+.it.sel > .lb b { color: var(--accent); }
+
+.world[data-lod="far"] .fr > .lb { display: none; }
+.gp { border-radius: 22px; background: var(--group); }
+.gp > .lb { font-size: 13px; padding-bottom: 9px; }
+.gp.sel { box-shadow: 0 0 0 var(--ring) var(--accent); }
+
+/* ---- frames ---------------------------------------------------------------------------------- */
+.fr > .bd {
+  position: relative; width: 100%; height: 100%; overflow: clip; background: var(--frame-paper);
+  border-radius: 6px;
+  box-shadow: 0 0 0 3px var(--ink);
+  transition: box-shadow var(--dur) var(--ease);
+}
+.fr[data-device="phone"] > .bd { border-radius: 30px; }
+.fr:hover > .bd { box-shadow: 0 0 0 4px var(--ink); }
+.fr.sel > .bd { box-shadow: 0 0 0 3px var(--ink), 0 0 0 calc(3px + var(--ring)) var(--accent); }
+.fr.sel > .bd::after {
+  content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+  animation: ping var(--dur-slow) var(--ease) 1 both;
+}
+@keyframes ping {
+  from { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 55%, transparent); }
+  to { box-shadow: 0 0 0 calc(22px / max(var(--z, 1), 0.12)) transparent; }
+}
+.bd > img, .bd > iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; display: block; }
+.bd > img { object-fit: fill; pointer-events: none; transition: opacity var(--dur) var(--ease); }
+.bd > iframe { pointer-events: none; background: var(--frame-paper); opacity: 0; transition: opacity var(--dur) var(--ease); }
+.bd > iframe.ready { opacity: 1; }
+.bd.live > img { opacity: 0; }
+.bd .ph {
+  position: absolute; inset: 0; display: grid; place-items: center; padding: 8%; text-align: center;
+  color: #77767d; font: 700 28px/1.2 var(--font-ui); pointer-events: none;
+}
+.bd .ph small { display: block; margin-top: 6px; font: 600 16px var(--font-mono); }
+
+/* ---- flowchart nodes ------------------------------------------------------------------------- */
+.nd { transition: filter var(--dur) var(--ease); }
+.nd .shape { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.nd .shape path, .nd .shape rect { fill: var(--surface); stroke: var(--ink); stroke-width: 3px; stroke-linejoin: round; transition: fill var(--dur) var(--ease); }
+.nd:hover .shape path, .nd:hover .shape rect { fill: var(--bg-2); }
+.nd.sel .shape path, .nd.sel .shape rect { stroke: var(--accent); }
+.nd .txt {
+  position: absolute; inset: 0; display: grid; place-items: center; padding: 10%; text-align: center;
+  font: 600 20px/1.2 var(--font-ui); color: var(--ink); pointer-events: none;
+}
+.nd > .lb { display: none; }
+
+/* ---- arrows (screen space) ------------------------------------------------------------------- */
+.arrows { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 1; pointer-events: none; overflow: hidden; }
+.ar { --c: var(--neu); }
+.ar.positive { --c: var(--pos); }
+.ar.negative { --c: var(--neg); }
+.ar .ln { fill: none; stroke: var(--c); stroke-width: 1.5px; stroke-linecap: round; opacity: 0.88; transition: stroke-width var(--dur-fast) var(--ease), opacity var(--dur-fast) var(--ease); }
+.ar .hd { fill: var(--c); stroke: none; }
+.ar .dot { fill: var(--c); stroke: var(--bg); stroke-width: 1.5px; transition: transform var(--dur-fast) var(--spring); transform-box: fill-box; transform-origin: center; }
+.ar:hover .dot, .ar.sel .dot { transform: scale(1.25); }
+.ar .hit { fill: none; stroke: transparent; stroke-width: 14px; pointer-events: stroke; cursor: pointer; }
+.ar .pill { fill: var(--bg); stroke: var(--c); stroke-width: 1px; transition: transform var(--dur-fast) var(--spring); transform-box: fill-box; transform-origin: center; }
+.ar text { fill: var(--c); font: 600 11px var(--font-ui); text-anchor: middle; dominant-baseline: central; pointer-events: none; }
+.ar .lab { pointer-events: all; cursor: pointer; }
+.ar:hover .ln, .ar.sel .ln { stroke-width: 2.4px; opacity: 1; }
+.ar:hover .pill, .ar.sel .pill { transform: scale(1.08); }
+/* A selected arrow turns to the accent, the colour every active thing in the studio wears. */
+.ar.sel { --c: var(--accent); }
+.ar.sel .pill { fill: var(--accent); }
+.ar.sel text { fill: var(--accent-ink); }
+.arrows[data-draw] .ar .ln { stroke-dasharray: 1; stroke-dashoffset: 1; animation: draw var(--dur-slow) var(--ease) forwards; animation-delay: calc(var(--i, 0) * 18ms); }
+.arrows[data-draw] .ar .hd, .arrows[data-draw] .ar .lab, .arrows[data-draw] .ar .dot { animation: fade var(--dur) var(--ease) both; animation-delay: calc(var(--i, 0) * 18ms + 260ms); }
+@keyframes draw { to { stroke-dashoffset: 0; } }
+
+/* ---- tables ---------------------------------------------------------------------------------- */
+/* World pixels, to match src/tables.mjs: a 96px header, 52px rows, a 240px first column, 190px others. */
+.tb__card { width: 100%; height: 100%; overflow: hidden; border-radius: 20px; background: var(--surface); box-shadow: 0 0 0 1px var(--edge); transition: box-shadow var(--dur) var(--ease); }
+.tb.sel > .tb__card { box-shadow: 0 0 0 var(--ring) var(--accent); }
+.tb__table { width: 100%; border-collapse: collapse; table-layout: fixed; font: 500 17px/1.2 var(--font-ui); color: var(--ink); }
+.tb__table th, .tb__table td { padding: 0 18px; text-align: left; border-bottom: 1px solid var(--bg-2); }
+.tb__table thead th { height: 96px; padding-top: 14px; vertical-align: top; border-bottom: 1px solid var(--ink-faint); }
+.tb__table tbody tr { height: 52px; }
+.tb__table tbody tr:last-child th, .tb__table tbody tr:last-child td { border-bottom: 0; }
+.tb__table tbody tr:hover { background: var(--hover); }
+.tb__table tbody th { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tb__col { display: block; font-weight: 700; }
+.tb__note { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; margin-top: 6px; color: var(--ink-soft); font: 400 13px/1.35 var(--font-ui); }
+.tb__empty { color: var(--ink-faint); }
+.tb__link { padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; border-bottom: 2px solid transparent; transition: border-color var(--dur-fast) var(--ease); }
+.tb__linked { cursor: pointer; }
+.tb__table tbody tr:hover .tb__link { border-bottom-color: var(--accent); }
+/* A status is a word, a dot and a tint: never a colour to guess at. */
+.mk { --c: var(--ink-soft); display: inline-flex; align-items: center; gap: 8px; padding: 5px 14px 5px 11px; border-radius: 999px; color: var(--c); background: color-mix(in srgb, var(--c) 14%, transparent); font: 600 15px var(--font-ui); }
+.mk::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--c); }
+.mk--positive { --c: var(--pos); }
+.mk--accent { --c: var(--accent); }
+.mk--outline { background: transparent; box-shadow: inset 0 0 0 1.5px var(--ink-faint); }
+.mk--outline::before { background: transparent; box-shadow: inset 0 0 0 2px var(--c); }
+.mk--hatch { background: repeating-linear-gradient(135deg, transparent 0 6px, var(--hover) 6px 12px); box-shadow: inset 0 0 0 1.5px var(--ink-faint); }
+.mk--hatch::before { border-radius: 2px; }
+.mk--faint { background: transparent; color: var(--ink-faint); }
+.mk--faint::before { display: none; }
+
+/* ---- the outline around a selected component --------------------------------------------------- */
+.outline { position: absolute; left: 0; top: 0; z-index: 3; pointer-events: none; }
+.hl { position: absolute; border-radius: 8px; background: color-mix(in srgb, var(--accent) 14%, transparent); box-shadow: 0 0 0 var(--ring) var(--accent); animation: fade var(--dur) var(--ease) both; }

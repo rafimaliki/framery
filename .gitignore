@@ -1,0 +1,5 @@
+node_modules/
+*.log
+.DS_Store
+# a scratch project made while developing
+/framery/

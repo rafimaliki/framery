@@ -1,0 +1,15 @@
+{
+  "name": "framery",
+  "version": "0.1.0",
+  "description": "Local-first agentic design board for solo developers: a canvas of flows and screens that you read in the browser and your coding agent edits.",
+  "keywords": ["design", "flows", "canvas", "mcp", "claude-code", "agent", "wireframe", "local-first"],
+  "homepage": "https://github.com/rafimaliki/framery#readme",
+  "repository": { "type": "git", "url": "git+https://github.com/rafimaliki/framery.git" },
+  "bugs": { "url": "https://github.com/rafimaliki/framery/issues" },
+  "type": "module",
+  "bin": { "framery": "bin/framery.mjs" },
+  "scripts": { "start": "node bin/framery.mjs", "dev": "node --watch bin/framery.mjs", "test": "node --test test/core.test.mjs" },
+  "files": ["bin", "src", "ui", "skills", "CHANGELOG.md"],
+  "engines": { "node": ">=22" },
+  "license": "MIT"
+}

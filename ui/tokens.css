@@ -1,0 +1,82 @@
+/* Framery tokens: the one place the studio's colour, shape and motion are named.
+   Colour follows data-theme (light | dark, resolved from the setting); motion follows data-motion.
+   The studio does not read the device's reduced-motion preference: motion is on by default and the
+   Settings menu is where a person turns it down. */
+
+:root {
+  color-scheme: light;
+  --bg: #f4f1ea;
+  --bg-2: #eae6dc;
+  --chrome: #e8e4d9;
+  --active: rgba(22, 22, 26, 0.08);
+  --surface: #fffdf8;
+  --ink: #16161a;
+  --ink-soft: #5b5b63;
+  --ink-faint: #8d8c92;
+  --frame-paper: #f4f1ea; /* what a frame looks like before its picture arrives, or when too small for one: a page, not a hole, in either theme */
+  --accent: #ef4b23;
+  --accent-ink: #ffffff;
+  --dot: rgba(22, 22, 26, 0.22);
+  --group: rgba(22, 22, 26, 0.055);
+  --shadow-c: #16161a;
+  --pos: #1f8a4c;
+  --neg: #c8213f; /* crimson, so a failure arrow never reads as the orange accent */
+  --neu: #7b7b84;
+  --hover: rgba(22, 22, 26, 0.06);
+  --edge: rgba(22, 22, 26, 0.14);
+  --float: 0 6px 22px rgba(22, 22, 26, 0.14);
+
+  --line: 2px;
+  --r-ctl: 8px;
+  --r-card: 12px;
+  --font-ui: "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --font-mono: "Cascadia Mono", ui-monospace, Consolas, monospace;
+
+  --side-w: 288px;
+  --rail-w: 60px;
+  --insp-w: 340px;
+
+  --dur-fast: 140ms;
+  --dur: 240ms;
+  --dur-slow: 520ms;
+  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #26262b;
+  --bg-2: #323238;
+  --chrome: #1b1b20;
+  --active: rgba(255, 255, 255, 0.1);
+  --surface: #2e2e34;
+  --ink: #efece5;
+  --ink-soft: #b4b3bc;
+  --ink-faint: #85848f;
+  --accent: #ff6a45;
+  --accent-ink: #1a0a05;
+  --dot: rgba(239, 236, 229, 0.17);
+  --group: rgba(255, 255, 255, 0.065);
+  --shadow-c: #141417;
+  --pos: #5acb8b;
+  --neg: #ff4f72;
+  --neu: #a3a2ad;
+  --hover: rgba(255, 255, 255, 0.08);
+  --edge: rgba(255, 255, 255, 0.1);
+  --float: 0 6px 24px rgba(0, 0, 0, 0.4);
+}
+
+/* Reduced: every duration collapses. Components only ever read the --dur tokens. */
+:root[data-motion="reduced"] {
+  --dur-fast: 0.01ms;
+  --dur: 0.01ms;
+  --dur-slow: 0.01ms;
+}
+:root[data-motion="reduced"] *,
+:root[data-motion="reduced"] *::before,
+:root[data-motion="reduced"] *::after {
+  animation-duration: 0.01ms !important;
+  animation-delay: 0ms !important;
+  transition-duration: 0.01ms !important;
+  transition-delay: 0ms !important;
+}
