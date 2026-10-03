@@ -157,6 +157,23 @@ export function createCanvas({ view: viewEl, world: worldEl, arrows: svg }, deps
     viewport.glide(viewport.fit(box, { pad: 120, max: 1, right: right() }));
   }
 
+  // The arrows with an end on this frame, or on anything inside this group.
+  function arrowsOf(id) {
+    const ids = new Set([id]);
+    for (let grew = true; grew; ) {
+      grew = false;
+      for (const i of page.items) if (i.parent && ids.has(i.parent) && !ids.has(i.id)) ids.add(i.id), (grew = true);
+    }
+    return new Set(page.arrows.filter((a) => ids.has(a.from.split('#')[0]) || ids.has(a.to.split('#')[0])).map((a) => a.id));
+  }
+
+  // Which arrows show: the mode, with focus mode falling back to all when nothing is focused.
+  function syncArrows() {
+    const mode = deps.arrowMode();
+    arrows.only(mode === 'none' ? new Set() : mode === 'focus' && inFrame && page ? arrowsOf(inFrame) : null);
+    if (page) redraw();
+  }
+
   function redraw() {
     viewport.set(viewport.get());
   }
@@ -180,6 +197,7 @@ export function createCanvas({ view: viewEl, world: worldEl, arrows: svg }, deps
       }
       world.setItems(page.items);
       arrows.setData(page.items, page.arrows, boxOf);
+      syncArrows();
       loadAnchors();
       if (fresh) {
         viewport.set(saved() ?? viewport.fit(bounds(page.items), { pad: 70, max: 0.9 }));
@@ -200,6 +218,7 @@ export function createCanvas({ view: viewEl, world: worldEl, arrows: svg }, deps
       // a component is outlined itself; its frame is not highlighted
       world.select(sel?.kind === 'item' ? sel.id : null);
       arrows.select(sel?.kind === 'arrow' ? sel.id : null);
+      syncArrows();
       selectedComponent = sel?.kind === 'component' ? sel : null;
       if (sel?.kind === 'component') showComponent(sel, shouldFocus);
       else {
@@ -211,6 +230,9 @@ export function createCanvas({ view: viewEl, world: worldEl, arrows: svg }, deps
       else focusArrow(sel.id);
     },
 
+    // The detail panel was closed: the selection stays, the camera no longer leaves room for the panel.
+    syncArrows,
+    closeDetail: () => (inspectorOpen = false),
     focus,
     fitAll: () => page && viewport.glide(viewport.fit(bounds(page.items), { pad: 70, max: 0.9 })),
     zoomBy: (factor) => viewport.zoomBy(factor),

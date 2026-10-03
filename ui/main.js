@@ -18,6 +18,7 @@ import { createZoombar } from './panels/zoombar.js';
 
 const $ = (id) => document.getElementById(id);
 const { state } = session;
+let detailClosed = false;
 let drawnLines = settings.get().lines; // arrows are only re-routed when this one setting changes
 
 // ---- parts -----------------------------------------------------------------------------------------
@@ -28,6 +29,7 @@ const canvas = createCanvas(
     rev: () => state.rev,
     animated: settings.animated,
     lineStyle: settings.lineStyle,
+    arrowMode: settings.arrowMode,
     onView: (view) => zoombar.show(view),
     onPick: (sel) => session.select(sel, { quiet: true }),
     // A table row that links somewhere ("flows/6_entry") opens that item on that page.
@@ -38,7 +40,7 @@ const canvas = createCanvas(
   },
 );
 
-const zoombar = createZoombar({ out: $('zoom-out'), in: $('zoom-in'), pct: $('zoom-pct'), fit: $('zoom-fit') }, canvas);
+const zoombar = createZoombar({ arrows: $('arrows-mode'), out: $('zoom-out'), in: $('zoom-in'), pct: $('zoom-pct'), fit: $('zoom-fit') }, canvas, settings);
 const sidebar = createSidebar(
   { app: $('app'), side: $('side'), pages: $('pages'), projects: $('projects'), menu: $('menu'), close: $('side-close') },
   { onNavigate: (route) => navigate(route) },
@@ -51,7 +53,11 @@ const inspector = createInspector($('inspector'), {
   components: () => state.components,
   onOpen: (page, id) => navigate({ project: state.project, page, id }),
   onPick: (sel) => session.select(sel),
-  onClose: () => session.select(null),
+  onClose: () => {
+    detailClosed = true; // only the panel goes; what is selected stays focused
+    inspector.hide();
+    canvas.closeDetail();
+  },
 });
 createHistory({ button: $('history-btn'), panel: $('history') }, { project: () => state.project, list: (project) => api.command('history', { project }), restore: (project, n) => api.command('restore', { project, n }) });
 createSettingsMenu({ button: $('settings-btn'), panel: $('settings') }, settings);
@@ -79,11 +85,12 @@ bus.on('page', ({ page, fresh }) => {
   canvas.show(page, { fresh, viewKey: `${state.project}.${state.pageId}` });
   canvas.select(state.sel);
   layers.select(state.sel);
-  if (state.sel) inspector.show(state.sel);
-  else inspector.hide();
+  if (state.sel && !detailClosed) inspector.show(state.sel);
+  else (inspector.hide(), detailClosed && canvas.closeDetail());
 });
 
 bus.on('select', ({ sel, focus }) => {
+  detailClosed = false;
   canvas.select(sel, { focus });
   layers.select(sel);
   if (sel && state.page) inspector.show(sel);
@@ -94,9 +101,10 @@ bus.on('select', ({ sel, focus }) => {
 bus.on('cache', () => canvas.cacheChanged());
 bus.on('components', (list) => {
   layers.setComponents(list);
-  if (state.sel && state.page) inspector.show(state.sel);
+  if (state.sel && state.page && !detailClosed) inspector.show(state.sel);
 });
 bus.on('settings', (next) => next.lines !== drawnLines && ((drawnLines = next.lines), canvas.restyleArrows()));
+bus.on('settings', () => canvas.syncArrows());
 bus.on('frames', (paths) => canvas.framesChanged(paths));
 
 // ---- go --------------------------------------------------------------------------------------------

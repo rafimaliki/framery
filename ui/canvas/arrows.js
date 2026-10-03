@@ -22,6 +22,7 @@ export function createArrows(svg, { animated, lineStyle }) {
   let drawn = []; // { geometry, nodes }
   let anchor = null; // the view the layer was last fully drawn at
   let selected = null;
+  let only = null; // a Set of arrow ids when a frame or group is focused: the rest stay hidden
   let timer = 0;
 
   function build(geometry, index) {
@@ -56,7 +57,7 @@ export function createArrows(svg, { animated, lineStyle }) {
     for (const { geometry: a, nodes } of drawn) {
       const via = { x: a.via.x == null ? null : a.via.x * view.s + view.x, y: a.via.y == null ? null : a.via.y * view.s + view.y };
       const shape = route(lineStyle(), to(a.p0), a.n0, to(a.p1), a.n1, via);
-      const visible = shape.box.x1 > -40 && shape.box.x0 < size.w + 40 && shape.box.y1 > -40 && shape.box.y0 < size.h + 40;
+      const visible = (!only || only.has(a.id)) && shape.box.x1 > -40 && shape.box.x0 < size.w + 40 && shape.box.y1 > -40 && shape.box.y0 < size.h + 40;
       nodes.g.style.display = visible ? '' : 'none';
       if (!visible) continue;
       nodes.hit.setAttribute('d', shape.d);
@@ -90,6 +91,12 @@ export function createArrows(svg, { animated, lineStyle }) {
 
     // The line style setting changed: the next draw is a full one, with the new routes.
     restyle() {
+      anchor = null;
+    },
+
+    // Show only these arrows (null: all). The next draw is a full one.
+    only(ids) {
+      only = ids;
       anchor = null;
     },
 

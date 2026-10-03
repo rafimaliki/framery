@@ -6,9 +6,10 @@
 import { bus } from './bus.js';
 
 const KEY = 'framery.settings';
-const DEFAULTS = { theme: 'system', motion: 'full', lines: 'elbow' };
+const DEFAULTS = { theme: 'system', motion: 'full', lines: 'elbow', arrows: 'focus' };
 const THEMES = ['system', 'light', 'dark'];
 const MOTIONS = ['full', 'reduced'];
+const ARROWS = ['all', 'focus', 'none']; // which arrows show: every one, those of the focused frame or group, none
 const LINES = ['straight', 'curved', 'elbow']; // elbow: straight segments that turn at right angles
 
 const dark = matchMedia('(prefers-color-scheme: dark)');
@@ -21,6 +22,7 @@ function load() {
       theme: THEMES.includes(saved.theme) ? saved.theme : DEFAULTS.theme,
       motion: MOTIONS.includes(saved.motion) ? saved.motion : DEFAULTS.motion,
       lines: LINES.includes(saved.lines) ? saved.lines : DEFAULTS.lines,
+      arrows: ARROWS.includes(saved.arrows) ? saved.arrows : DEFAULTS.arrows,
     };
   } catch {
     return { ...DEFAULTS };
@@ -43,10 +45,11 @@ dark.addEventListener('change', () => state.theme === 'system' && apply({ animat
 apply({ animate: false });
 
 export const settings = {
-  options: { theme: THEMES, motion: MOTIONS, lines: LINES },
+  options: { theme: THEMES, motion: MOTIONS, lines: LINES, arrows: ARROWS },
   get: () => ({ ...state }),
   animated: () => state.motion === 'full',
   lineStyle: () => state.lines,
+  arrowMode: () => state.arrows,
   set(patch) {
     state = { ...state, ...patch };
     try {

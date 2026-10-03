@@ -3,6 +3,11 @@
 Releases are git tags (`v0.1.0`). Nothing updates by itself: you pick a version, see "Updating" in the README.
 A release that changes the data format says so here and ships its migration; until then every project is format 1.
 
+## 0.2.0
+
+Studio: the arrow button on the zoom bar cycles all arrows, the focused frame's arrows (the default), or none.
+Focus on a frame or group shows only the arrows that touch it. The X on the detail panel closes the panel and keeps the focus.
+
 ## 0.1.1
 
 `doctor` also checks the design: every arrow ends on an item that exists and every frame has its file.
