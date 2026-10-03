@@ -30,5 +30,15 @@ export function doctor({ dir = '.', data = 'framery' } = {}) {
   const store = new Store(root);
   const formats = projects.map((name) => ({ name, format: readJson(join(store.dir(name), 'project.json')).format ?? 1 }));
   for (const p of formats) if (p.format > FORMAT) problems.push(`${p.name} was saved by a newer framery (format ${p.format}, this one reads up to ${FORMAT}): install a newer version`);
+  // the design itself: every arrow ends on an item that exists, every frame's file is there
+  for (const { name, format } of formats) {
+    if (format > FORMAT) continue;
+    for (const { id } of store.project(name).pages ?? []) {
+      const page = store.page(name, id);
+      const ids = new Set(page.items.map((item) => item.id));
+      for (const arrow of page.arrows) for (const end of [arrow.from, arrow.to]) if (!ids.has(end.split('#')[0])) problems.push(`${name}/${id}: arrow ${arrow.id} ends on missing ${end}`);
+      for (const item of page.items) if (item.type === 'frame' && !existsSync(store.inside(name, item.src))) problems.push(`${name}/${id}: frame ${item.id} has no file ${item.src}`);
+    }
+  }
   return { version: version(), format: FORMAT, projects: formats, ok: !problems.length, problems };
 }

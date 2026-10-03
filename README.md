@@ -64,7 +64,7 @@ In your project's root folder:
 
 ```sh
 cd my-project
-npm install --save-dev github:rafimaliki/framery#v0.1.0
+npm install --save-dev github:rafimaliki/framery#v0.1.1
 npx framery init
 npx framery
 ```

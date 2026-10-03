@@ -264,6 +264,14 @@ test('doctor: a fresh init is in step; a stale skill is reported; a newer data f
   init({ dir: root });
   assert.equal(doctor({ dir: root }).ok, true, 'init refreshes it');
 
+  const base = new Store(join(root, 'framery'));
+  const flows = join(base.dir(base.projects()[0]), 'pages', 'flows.json');
+  writeFileSync(flows, JSON.stringify({ id: 'flows', items: [{ id: 'a', type: 'frame', src: 'gone.html' }], arrows: [{ id: 'x', from: 'a', to: 'nope' }] }));
+  const found = doctor({ dir: root }).problems.join('; ');
+  assert.match(found, /missing nope/);
+  assert.match(found, /no file gone\.html/);
+  writeFileSync(flows, JSON.stringify({ id: 'flows', items: [], arrows: [] }));
+
   const store = new Store(join(root, 'framery'));
   const [name] = store.projects();
   const file = join(store.dir(name), 'project.json');
