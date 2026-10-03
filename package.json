@@ -1,6 +1,6 @@
 {
   "name": "framery",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Local-first agentic design board for solo developers: a canvas of flows and screens that you read in the browser and your coding agent edits.",
   "keywords": ["design", "flows", "canvas", "mcp", "claude-code", "agent", "wireframe", "local-first"],
   "homepage": "https://github.com/rafimaliki/framery#readme",

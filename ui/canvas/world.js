@@ -13,6 +13,7 @@ export function createWorld(root, renderers, ctx) {
   let items = [];
   let selected = null;
   const mounted = new Map(); // id -> { item, el }
+  let hidden = new Set(); // ids of items kept off the page (flowchart nodes whose arrows are all hidden)
 
   function unmount(id) {
     const entry = mounted.get(id);
@@ -28,6 +29,7 @@ export function createWorld(root, renderers, ctx) {
     const el = renderer.create(item, ctx);
     el.style.zIndex = LAYER[item.type] ?? 1;
     el.classList.toggle('sel', item.id === selected);
+    el.style.display = hidden.has(item.id) ? 'none' : '';
     root.append(el);
     mounted.set(item.id, { item, el });
   }
@@ -68,6 +70,11 @@ export function createWorld(root, renderers, ctx) {
         byType.get(entry.item.type).push(entry);
       }
       for (const [type, entries] of byType) renderers[type].tuneAll?.(entries, { scale: view.s, centre, settled }, ctx);
+    },
+
+    hide(ids) {
+      hidden = ids;
+      for (const [id, { el }] of mounted) el.style.display = hidden.has(id) ? 'none' : '';
     },
 
     select(id) {

@@ -3,6 +3,10 @@
 Releases are git tags (`v0.1.0`). Nothing updates by itself: you pick a version, see "Updating" in the README.
 A release that changes the data format says so here and ships its migration; until then every project is format 1.
 
+## 0.2.1
+
+Studio: a flowchart node (diamond, process, terminal) is hidden along with its arrows: when it has arrows and none show, it goes too.
+
 ## 0.2.0
 
 Studio: the arrow button on the zoom bar cycles all arrows, the focused frame's arrows (the default), or none.

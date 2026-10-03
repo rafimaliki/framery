@@ -170,7 +170,18 @@ export function createCanvas({ view: viewEl, world: worldEl, arrows: svg }, deps
   // Which arrows show: the mode, with focus mode falling back to all when nothing is focused.
   function syncArrows() {
     const mode = deps.arrowMode();
-    arrows.only(mode === 'none' ? new Set() : mode === 'focus' && inFrame && page ? arrowsOf(inFrame) : null);
+    const only = mode === 'none' ? new Set() : mode === 'focus' && inFrame && page ? arrowsOf(inFrame) : null;
+    arrows.only(only);
+    // a flowchart node goes with its arrows: hidden when it has some and none show (a lone node stays)
+    const hidden = new Set();
+    if (only && page) {
+      const ends = (a, id) => a.from.split('#')[0] === id || a.to.split('#')[0] === id;
+      for (const i of page.items) {
+        const mine = i.type === 'node' ? page.arrows.filter((a) => ends(a, i.id)) : [];
+        if (mine.length && !mine.some((a) => only.has(a.id))) hidden.add(i.id);
+      }
+    }
+    world.hide(hidden);
     if (page) redraw();
   }
 

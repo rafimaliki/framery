@@ -64,7 +64,7 @@ In your project's root folder:
 
 ```sh
 cd my-project
-npm install --save-dev github:rafimaliki/framery#v0.2.0
+npm install --save-dev github:rafimaliki/framery#v0.2.1
 npx framery init
 npx framery
 ```
@@ -91,7 +91,7 @@ Nothing updates by itself, and framery never calls the network. Updating is a ch
 
 ```sh
 npx framery doctor                                        # what is installed, and is this project in step?
-npm install --save-dev github:rafimaliki/framery#v0.2.0  # pick a release (see CHANGELOG.md, or the tags)
+npm install --save-dev github:rafimaliki/framery#v0.2.1  # pick a release (see CHANGELOG.md, or the tags)
 npx framery init                                          # refresh the skill and the MCP entry
 npx framery doctor                                        # confirm
 ```
