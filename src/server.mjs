@@ -247,6 +247,7 @@ export function serve({ root, port = 4173, autoRender = true, quiet = false }) {
           'content-type': TYPES[extname(target)] ?? 'application/octet-stream',
           'content-disposition': `attachment; filename="${out.file.split('/').pop()}"`,
           'x-framery-size': `${out.width}x${out.height}`,
+          'x-framery-scale': String(out.scale), // lower than asked when the item was too large for it
           'cache-control': 'no-store',
         });
         return createReadStream(target).pipe(response);
