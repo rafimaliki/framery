@@ -30,6 +30,7 @@ export const icon = {
   arrowsFocus: svg('<path d="M3 10h9M9 7l3 3-3 3"/><circle cx="16" cy="10" r="1.6"/>'),
   arrowsNone: svg('<path d="M3 10h11M11 7l3 3-3 3M3.5 3.5l13 13"/>'),
   play: svg('<path d="M6 4v12l10-6Z"/>'),
+  external: svg('<path d="M11.5 3.5h5v5M16.5 3.5 9 11M14.5 11.5v4a1 1 0 0 1-1 1h-9a1 1 0 0 1-1-1v-9a1 1 0 0 1 1-1h4"/>'),
   back: svg('<path d="M12 4 6 10l6 6"/>'),
   warn: svg('<path d="M10 3 18 17H2Z"/><path d="M10 8v4M10 14.5v.01"/>'),
   minus: svg('<path d="M4 10h12"/>'),

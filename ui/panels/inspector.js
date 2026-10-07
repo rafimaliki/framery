@@ -60,11 +60,9 @@ export function createInspector(el, { page, pageId, project, components, onPick,
     return [
       chips(kind, size, { text: item.id }),
       text(item.description, 'No description yet.'),
-      item.type === 'frame' && out.length
-        ? h('button', { class: 'inspector__open inspector__play', type: 'button', onclick: () => onPlay(item.id) }, h('span', { html: icon.play }), 'Play from here')
-        : null,
+      // one way to look at a screen: the player (which also opens it in a new tab)
       item.type === 'frame'
-        ? h('a', { class: 'inspector__open', href: `/preview.html?${new URLSearchParams({ project: project(), src: item.src, w: item.w, h: item.h, device: item.device ?? '', title: item.title ?? item.id })}`, target: '_blank', rel: 'noopener' }, 'Open page', h('span', { html: icon.link }))
+        ? h('button', { class: 'inspector__open', type: 'button', onclick: () => onPlay(item.id) }, h('span', { html: icon.play }), out.length ? 'Play from here' : 'View screen')
         : null,
       section('Inside', inside.map((m) => linkRow([nameOf(m)], pick(m)))),
       section('Components', used.map((c) => linkRow([h('span', { class: 'link__dir', html: icon.component }), c.title ?? c.id], () => onPick({ kind: 'component', id: c.id, frame: item.id }), `×${c.frames.find((f) => f.id === item.id).count}`))),

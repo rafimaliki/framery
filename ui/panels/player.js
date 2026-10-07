@@ -14,9 +14,10 @@ export function createPlayer({ project, page, rev, onExit }) {
   const title = h('h2', { class: 'player__title' });
   const back = h('button', { class: 'icon-btn', type: 'button', 'aria-label': 'Back', title: 'Back', html: icon.back });
   const close = h('button', { class: 'icon-btn', type: 'button', 'aria-label': 'Stop playing', title: 'Stop playing (Esc)', html: icon.close });
+  const tab = h('a', { class: 'icon-btn', target: '_blank', rel: 'noopener', 'aria-label': 'Open this screen in a new tab', title: 'Open this screen in a new tab', html: icon.external });
   const stage = h('div', { class: 'player__stage' });
   const ways = h('div', { class: 'player__ways' });
-  const dialog = h('dialog', { class: 'player', 'aria-label': 'Play the flow' }, h('header', { class: 'player__head' }, back, title, close), stage, ways);
+  const dialog = h('dialog', { class: 'player', 'aria-label': 'Play the flow' }, h('header', { class: 'player__head' }, back, title, tab, close), stage, ways);
   document.body.append(dialog);
   let trail = []; // ids played, the last one showing
   let fit = () => {};
@@ -53,10 +54,12 @@ export function createPlayer({ project, page, rev, onExit }) {
     ways.replaceChildren(...leaving.filter((a) => !element(a.from) && it?.type === 'frame').map(way));
     if (!it || it.type !== 'frame') {
       // a question (a diamond), or anything that is not a screen: its ways out are the choices
+      tab.removeAttribute('href');
       stage.replaceChildren(h('div', { class: 'player__ask' }, h('p', null, it?.title ?? id), ...(leaving.length ? leaving.map(way) : [h('p', { class: 'player__end' }, 'The flow ends here.')])));
       fit = () => {};
       return;
     }
+    tab.href = `/preview.html?${new URLSearchParams({ project: project(), src: it.src, w: it.w, h: it.h, device: it.device ?? '', title: it.title ?? it.id })}`;
     const hot = new Map(leaving.filter((a) => element(a.from)).map((a) => [element(a.from), end(a.to)]));
     const frame = h('iframe', { class: 'player__frame', title: it.title ?? it.id, src: api.file(project(), it.src, rev()) });
     frame.style.width = `${it.w}px`;
