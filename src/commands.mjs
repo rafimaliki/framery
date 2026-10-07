@@ -1,7 +1,7 @@
 // The one command surface. The MCP server, the HTTP API and the CLI all call run(); each entry
 // carries its own description and input schema, so the tool list an agent sees is this table.
 
-import { existsSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, renameSync, writeFileSync } from 'node:fs';
 import { checkName, fail } from './store.mjs';
 import { DEVICES, arrange, find, fitGroup, layoutFlow, members, outline, place, refElement, refItem, withMembers } from './layout.mjs';
 import * as tables from './tables.mjs';
@@ -10,6 +10,7 @@ import { componentCommands } from './commands-components.mjs';
 import { historyCommands } from './commands-history.mjs';
 import { begin, record, snapshot } from './history.mjs';
 import { checkArrows } from '../ui/canvas/check.js';
+import { checkTokens } from './tokens-check.mjs';
 
 const TYPES = ['frame', 'group', 'node', 'table'];
 const SHAPES = { terminal: [160, 56], process: [180, 72], diamond: [200, 120] };
@@ -598,6 +599,27 @@ export const commands = {
       };
       const problems = checkArrows(page.items ?? [], page.arrows ?? [], boxOf);
       return { problems, ...(unmeasured.size ? { unmeasured: [...unmeasured] } : {}) };
+    },
+  ),
+
+  check_tokens: cmd(
+    "Values typed into the project's css, library templates and frames that should be design tokens: colours (one equal to a token is that token; any other is outside the system) and sizes equal to a token whose name fits the property (a radius, a font size, a spacing). fix: true rewrites the ones that equal a token to var(--name). The tokens file and generated component regions are left alone.",
+    { project, page: t.str('only the frames of this page; default every page'), fix: t.bool('rewrite literals that equal a token to var(--name)') },
+    [],
+    (store, a) => {
+      const name = store.name(a.project);
+      const info = store.project(name);
+      const dir = store.dir(name);
+      const tokensAt = info.tokens ?? 'tokens.css';
+      const paths = new Set(readdirSync(dir).filter((f) => f.endsWith('.css') && f !== tokensAt));
+      if (existsSync(store.inside(name, 'library'))) for (const f of readdirSync(store.inside(name, 'library'))) if (f.endsWith('.html')) paths.add(`library/${f}`);
+      for (const p of a.page ? [{ id: pageId(store, name, a.page) }] : info.pages ?? []) {
+        for (const item of store.page(name, p.id).items ?? []) if (item.type === 'frame' && existsSync(store.inside(name, item.src))) paths.add(item.src);
+      }
+      const files = [...paths].map((path) => ({ path, text: readFileSync(store.inside(name, path), 'utf8') }));
+      const { problems, changed } = checkTokens(files, tokens(readFileSync(tokenFile(store, name), 'utf8')), { fix: a.fix });
+      for (const [path, text] of changed) writeFileSync(store.inside(name, path), text);
+      return { problems, ...(a.fix ? { fixed: [...changed.keys()] } : {}) };
     },
   ),
 

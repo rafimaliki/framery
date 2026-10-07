@@ -53,7 +53,7 @@ All writes go through the tools. They validate, keep ids stable, and the open st
 | many edits at once | `batch {page?, calls:[{tool, args}]}`: one request, all or nothing, one history entry. Use it for any run of several edits (renames, a whole flow) |
 | a better id | `rename_item {id, to}`: arrows, children, table links on any page and the cached preview follow |
 | a new page | `add_page {id, title}`; reorder with `move_page {id, before?}` (omit `before` to put it last) |
-| tokens | `set_token {name, value}` |
+| tokens | `set_token {name, value}`; `check_tokens {page?, fix?}` finds colours and sizes typed in where a token belongs (`fix: true` swaps the exact matches for `var(--name)`; a value two tokens share is yours to choose) |
 | a table | `add_item {type:"table", columns:[{id,title,note?}], rows:[{id,title,link?:"page/item",cells:{columnId:text}}], marks:{"built":"positive"}}` |
 | progress in a table | `set_cell {id, row, column, value}`: one cell, the cheapest edit; `add_row`, `remove_row`, `add_column`, `remove_column` |
 
