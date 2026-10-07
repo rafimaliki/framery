@@ -1,6 +1,8 @@
 // The layer list: groups with their frames beneath, filterable, and each group collapsible. Clicking a
 // layer selects it and the canvas flies there. It renders from page data and never touches the canvas.
 // Which groups are open is remembered per page; a long page starts collapsed, a short one open.
+// An edit patches the list: a row whose content is unchanged keeps its element (and its hover, focus and
+// place), so renaming one frame touches one row.
 
 import { h, icon } from '../core/dom.js';
 
@@ -22,6 +24,8 @@ export function createLayers({ box, list, search, toggleAll }, { onPick }) {
   const parentOf = new Map();
   let byFrame = new Map(); // frame id -> the components it uses: [{ id, title, count }]
   const rowId = (frame, component, at) => `${frame}:${component}:${at ?? ''}`;
+  // played once: a row kept and moved later must not play its entrance again
+  const once = (li) => li.addEventListener('animationend', () => li.classList.remove('layer-row--new'), { once: true });
 
   const storeKey = () => `framery.layers.${key}`;
   const remember = () => {
@@ -59,10 +63,11 @@ export function createLayers({ box, list, search, toggleAll }, { onPick }) {
       h('span', { class: 'layer__title' }, comp.title),
       comp.hint ? h('span', { class: 'layer__tag' }, comp.hint) : null,
     );
-    const li = h('li', { class: `layer-row layer-row--leaf layer-row--component${shown.has(id) ? '' : ' layer-row--new'}`, 'data-id': id });
+    const li = h('li', { class: `layer-row layer-row--leaf layer-row--component${shown.has(id) ? '' : ' layer-row--new'}`, 'data-id': id, 'data-sig': JSON.stringify([comp.title, comp.hint, depth]) });
     li.style.setProperty('--i', index);
     li.style.setProperty('--depth', depth);
     li.append(pick);
+    once(li);
     return li;
   }
 
@@ -80,14 +85,17 @@ export function createLayers({ box, list, search, toggleAll }, { onPick }) {
       item.step ? h('span', { class: 'layer__tag' }, item.step) : null,
       h('span', { class: 'layer__title' }, item.title ?? item.id),
     );
-    const li = h('li', { class: `layer-row${shown.has(item.id) ? '' : ' layer-row--new'}`, 'data-id': item.id });
+    const folds = item.type === 'group' || byFrame.has(item.id);
+    const sig = JSON.stringify([glyph(item), item.step, item.title ?? item.id, depth, folds]);
+    const li = h('li', { class: `layer-row${shown.has(item.id) ? '' : ' layer-row--new'}`, 'data-id': item.id, 'data-sig': sig });
     li.style.setProperty('--i', index);
     li.style.setProperty('--depth', depth); // each level sits one tab in from the one above
-    if (item.type === 'group' || byFrame.has(item.id)) {
+    if (folds) {
       const caret = h('button', { class: 'caret', type: 'button', 'aria-label': `Toggle ${item.title ?? item.id}`, 'aria-expanded': String(open.has(item.id)), html: icon.caret, onclick: () => toggle(item.id) });
       li.append(caret);
     } else li.classList.add('layer-row--leaf');
     li.append(pick);
+    once(li);
     return li;
   }
 
@@ -112,10 +120,24 @@ export function createLayers({ box, list, search, toggleAll }, { onPick }) {
       }
     };
     walk(null, 0);
-    list.replaceChildren(...(rows.length ? rows : [h('li', { class: 'layers__none' }, 'Nothing matches.')]));
+    const old = new Map([...list.children].filter((li) => li.dataset.sig).map((li) => [li.dataset.id, li]));
+    const next = rows.map((li) => (old.get(li.dataset.id)?.dataset.sig === li.dataset.sig ? old.get(li.dataset.id) : li));
+    patch(list, next.length ? next : [h('li', { class: 'layers__none' }, 'Nothing matches.')]);
+    for (const li of next) {
+      const button = li.querySelector(':scope > .layer');
+      button.setAttribute('aria-selected', String(button.dataset.id === selected));
+    }
     // after the current task, so the second render that show() and setComponents() make together still animates
     queueMicrotask(() => rows.forEach((li) => shown.add(li.dataset.id)));
     apply();
+  }
+
+  // Put these nodes in the list in this order, moving only the ones that are out of place.
+  function patch(parent, nodes) {
+    nodes.forEach((node, i) => {
+      if (parent.children[i] !== node) parent.insertBefore(node, parent.children[i] ?? null);
+    });
+    while (parent.children.length > nodes.length) parent.lastElementChild.remove();
   }
 
   // Show or hide rows to match what is open, without rebuilding the list or losing the scroll position.
@@ -176,7 +198,7 @@ export function createLayers({ box, list, search, toggleAll }, { onPick }) {
       key = pageKey;
       parentOf.clear();
       for (const item of page.items) if (item.parent) parentOf.set(item.id, item.parent);
-      if (fresh) (open = restore()), (shown = new Set());
+      if (fresh) (open = restore()), (shown = new Set()), list.replaceChildren(); // another page: nothing carries over
       box.hidden = false;
       render();
     },
