@@ -32,6 +32,7 @@ Framery gives the agent a board it can read and edit through tools, and gives yo
 | **Arrows that mean something** | An arrow starts on the control that causes it ("tap Save") and ends on the screen it opens. Straight, curved or elbow lines. |
 | **Details on click** | Click a screen, a group, a component or an arrow to read its description. Layers on the left, one row per component instance. |
 | **Components** | A button used in forty screens is one definition. Change it once and every frame follows. Repeated markup is detected and can be promoted. |
+| **Play the flow** | "Play from here" on a screen (or `P`) clicks through it like a prototype: the real page, live; a tap on a control with an arrow goes where the arrow goes, a diamond asks its question, and a misclick flashes what can be tapped. |
 | **Design system and plan** | Pages are just boards. A design system page shows components alone; a plan page is a table (flows against phases) that agents update one cell at a time. |
 | **Export** | Any frame, flow or table as png, webp, svg or pdf, from the detail panel. |
 | **History** | Undo trail with restore. Each prompt is one step. |

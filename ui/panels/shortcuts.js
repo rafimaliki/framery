@@ -2,7 +2,7 @@
 
 const typing = (el) => el && (/^(input|textarea|select)$/i.test(el.tagName) || el.isContentEditable);
 
-export function installShortcuts({ canvas, toggleSidebar, clearSelection, enabled }) {
+export function installShortcuts({ canvas, toggleSidebar, clearSelection, enabled, play }) {
   addEventListener('keydown', (event) => {
     if (event.metaKey || event.ctrlKey || event.altKey || typing(document.activeElement)) return;
     if (event.key === '[') {
@@ -18,6 +18,7 @@ export function installShortcuts({ canvas, toggleSidebar, clearSelection, enable
       '+': () => canvas.zoomBy(1.25),
       '-': () => canvas.zoomBy(1 / 1.25),
       Escape: clearSelection,
+      p: play, // play the flow from the selected screen, or from its start
       ArrowLeft: () => canvas.pan(step, 0),
       ArrowRight: () => canvas.pan(-step, 0),
       ArrowUp: () => canvas.pan(0, step),

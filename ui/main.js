@@ -13,6 +13,7 @@ import { createLayers } from './panels/layers.js';
 import { createHistory } from './panels/history.js';
 import { createSettingsMenu } from './panels/settings-menu.js';
 import { createSidebar } from './panels/sidebar.js';
+import { createPlayer } from './panels/player.js';
 import { installShortcuts } from './panels/shortcuts.js';
 import { createZoombar } from './panels/zoombar.js';
 
@@ -53,6 +54,7 @@ const inspector = createInspector($('inspector'), {
   components: () => state.components,
   onOpen: (page, id) => navigate({ project: state.project, page, id }),
   onPick: (sel) => session.select(sel),
+  onPlay: (id) => player.play(id),
   onClose: () => {
     detailClosed = true; // only the panel goes; what is selected stays focused
     inspector.hide();
@@ -61,7 +63,15 @@ const inspector = createInspector($('inspector'), {
 });
 createHistory({ button: $('history-btn'), panel: $('history') }, { project: () => state.project, list: (project) => api.command('history', { project }), restore: (project, n) => api.command('restore', { project, n }) });
 createSettingsMenu({ button: $('settings-btn'), panel: $('settings') }, settings);
-installShortcuts({ canvas, toggleSidebar: () => sidebar.toggle(), clearSelection: () => session.select(null), enabled: () => !!state.page });
+// the canvas follows the prototype: when playing stops, the last screen played is selected
+const player = createPlayer({ project: () => state.project, page: () => state.page, rev: () => state.rev, onExit: (id) => id && state.page?.items.some((i) => i.id === id) && session.select({ kind: 'item', id }) });
+installShortcuts({
+  canvas,
+  toggleSidebar: () => sidebar.toggle(),
+  clearSelection: () => session.select(null),
+  enabled: () => !!state.page,
+  play: () => player.play(state.sel?.kind === 'item' && state.page.items.find((i) => i.id === state.sel.id)?.type === 'frame' ? state.sel.id : undefined),
+});
 
 // The address names a frame: a component is addressed by the frame it sits in.
 const onCanvas = (sel) => (sel?.kind === 'component' ? { kind: 'item', id: sel.frame } : sel);
