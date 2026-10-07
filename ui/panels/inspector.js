@@ -16,17 +16,23 @@ export function createInspector(el, { page, pageId, project, components, onPick,
   const chips = (...entries) =>
     h('ul', { class: 'inspector__meta' }, ...entries.filter(Boolean).map((e) => h('li', { class: `chip${e.tone ? ` chip--${e.tone}` : ''}` }, e.text ?? e)));
 
-  // Long descriptions fold to a few lines; the person opens them.
+  // Long descriptions fold to a few lines; the person opens them, and an edit refreshing the panel keeps
+  // them open.
+  let unfolded = false;
   function text(value, empty) {
     const p = h('p', { class: `inspector__text${value ? '' : ' inspector__text--empty'}` }, value || empty);
     if (!value || value.length < 260) return p;
-    p.classList.add('is-folded');
-    const toggle = h('button', { class: 'text-btn inspector__more', type: 'button', 'aria-expanded': 'false' }, 'Read more');
+    const toggle = h('button', { class: 'text-btn inspector__more', type: 'button' });
+    const paint = () => {
+      p.classList.toggle('is-folded', !unfolded);
+      toggle.textContent = unfolded ? 'Show less' : 'Read more';
+      toggle.setAttribute('aria-expanded', String(unfolded));
+    };
     toggle.addEventListener('click', () => {
-      const open = p.classList.toggle('is-folded') === false;
-      toggle.textContent = open ? 'Show less' : 'Read more';
-      toggle.setAttribute('aria-expanded', String(open));
+      unfolded = !unfolded;
+      paint();
     });
+    paint();
     return h('div', null, p, toggle);
   }
 
@@ -107,10 +113,11 @@ export function createInspector(el, { page, pageId, project, components, onPick,
       const subject = isComponent ? component : isArrow ? page().arrows.find((a) => a.id === sel.id) : page().items.find((i) => i.id === sel.id);
       if (!subject) return this.hide();
       const title = isComponent ? subject.title ?? subject.id : isArrow ? [subject.from, subject.to].map((ref) => itemOf(ref)?.title ?? refId(ref)).join(' → ') : subject.title ?? subject.id;
-      const body = isComponent ? componentBody(subject, sel) : isArrow ? arrowBody(subject) : itemBody(subject);
       const wasHidden = el.hidden;
       const key = [sel.kind, sel.frame, sel.id, sel.at].join(':');
       const refresh = !wasHidden && key === shownKey;
+      if (!refresh) unfolded = false; // another subject starts folded
+      const body = isComponent ? componentBody(subject, sel) : isArrow ? arrowBody(subject) : itemBody(subject);
       const scroll = refresh ? el.querySelector('.inspector__body')?.scrollTop ?? 0 : 0;
       shownKey = key;
       el.hidden = false;
