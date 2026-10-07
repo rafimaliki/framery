@@ -427,6 +427,26 @@ export const commands = {
     return { removed: a.id };
   }),
 
+  move_page: cmd(
+    'Change where a page sits in the sidebar: before another page, or last when before is omitted.',
+    { project, id: t.str('page id'), before: t.str('the page it should come before') },
+    ['id'],
+    (store, a) => {
+      const name = store.name(a.project);
+      const info = store.project(name);
+      const pages = info.pages ?? [];
+      const page = pages.find((p) => p.id === a.id);
+      if (!page) fail(`no page ${a.id}`);
+      if (a.before === a.id) fail('a page cannot come before itself');
+      const rest = pages.filter((p) => p !== page);
+      const at = a.before == null ? rest.length : rest.findIndex((p) => p.id === a.before);
+      if (at < 0) fail(`no page ${a.before}`);
+      info.pages = [...rest.slice(0, at), page, ...rest.slice(at)];
+      store.saveProject(name, info);
+      return { pages: info.pages.map((p) => p.id) };
+    },
+  ),
+
   list_anchors: cmd(
     'Element ids a frame offers as arrow anchors, with their measured boxes (frame pixels) once the frame has been rendered.',
     { ...where, frame: t.str('frame id') },
