@@ -4,9 +4,7 @@
 import { fail } from './store.mjs';
 import { asText } from './tables.mjs';
 
-// phone, tablet, desktop: a real screen of that device only. document: anything else (a spec, a gallery, a token
-// sheet), at a fixed width with its height measured from the page.
-export const DEVICES = { phone: [390, 844], tablet: [820, 1180], desktop: [1280, 800], document: [960, 1200] };
+export { DEVICES } from '../ui/core/devices.js';
 export const GAP = 120;
 
 export const refItem = (ref) => ref.split('#')[0];

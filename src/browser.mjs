@@ -9,7 +9,7 @@ import { tmpdir } from 'node:os';
 import { delimiter, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { fail } from './store.mjs';
-import { find, fitGroup } from './layout.mjs';
+import { DEVICES, find, fitGroup } from './layout.mjs';
 
 const SCALE = 0.5; // previews are half size: far zoom never needs more, and the file stays small
 const WORKERS = 3;
@@ -146,7 +146,9 @@ const MEASURE = `(async () => {
     const need = size >= 24 || (size >= 18.66 && +style.fontWeight >= 700) ? 3 : 4.5;
     if (ratio < need) contrast.push({ text: own.slice(0, 40), ratio: q(ratio), need, fg: hex(fg), bg: hex(bg), box: [q(r.x), q(r.y + scrollY), q(r.width), q(r.height)] });
   }
-  return { height, anchors, parts, contrast };
+  // how far the page runs past the right edge: a layout that breaks at this width
+  const overflow = Math.max(0, Math.ceil(Math.max(document.documentElement.scrollWidth, document.body.scrollWidth) - innerWidth));
+  return { height, anchors, parts, contrast, overflow };
 })()`;
 
 async function shoot(cdp, session, file, frame) {
@@ -170,7 +172,17 @@ async function shoot(cdp, session, file, frame) {
   const height = frame.autoHeight && measured.height > 0 ? measured.height : frame.h;
   if (height !== probe) await send('Emulation.setDeviceMetricsOverride', { width: frame.w, height, deviceScaleFactor: 1, mobile: false });
   const { data } = await send('Page.captureScreenshot', { format: 'webp', quality: 72, clip: { x: 0, y: 0, width: frame.w, height, scale: SCALE } });
-  return { height, anchors: measured.anchors, parts: measured.parts, contrast: measured.contrast, image: Buffer.from(data, 'base64') };
+  const image = Buffer.from(data, 'base64');
+  // The other sizes the page is meant for (sizes: ["tablet"]): measured, not pictured. Overflow and contrast
+  // there are what check_design reports; the player shows the page live at each.
+  const sizes = {};
+  for (const size of frame.sizes ?? []) {
+    const [w, h] = DEVICES[size];
+    await send('Emulation.setDeviceMetricsOverride', { width: w, height: h, deviceScaleFactor: 1, mobile: false });
+    const { result: there } = await send('Runtime.evaluate', { expression: `(async () => { await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))); return ${MEASURE}; })()`, awaitPromise: true, returnByValue: true });
+    sizes[size] = { w, h, overflow: there.value.overflow, contrast: there.value.contrast };
+  }
+  return { height, anchors: measured.anchors, parts: measured.parts, contrast: measured.contrast, overflow: measured.overflow, sizes, image };
 }
 
 const depsMtime = (store, project) => {
@@ -195,7 +207,7 @@ export async function render(store, args = {}, onProgress = () => {}) {
       const meta = store.inside(project, `.cache/anchors/${item.id}.json`);
       const known = existsSync(meta) ? JSON.parse(readFileSync(meta, 'utf8')) : null;
       const srcTime = store.mtime(store.inside(project, item.src));
-      const fresh = known && known.contrast && known.src === srcTime && known.deps === deps && known.w === item.w && known.h === item.h && existsSync(store.inside(project, `.cache/frames/${item.id}.webp`));
+      const fresh = known && known.contrast && String(Object.keys(known.sizes ?? {})) === String(item.sizes ?? []) && known.src === srcTime && known.deps === deps && known.w === item.w && known.h === item.h && existsSync(store.inside(project, `.cache/frames/${item.id}.webp`));
       if (fresh && !args.force) skipped++;
       else todo.push({ page: pageName, item, srcTime });
     }
@@ -223,7 +235,7 @@ export async function render(store, args = {}, onProgress = () => {}) {
           const out = await shoot(cdp, sessionId, store.inside(project, item.src), item);
           writeFileSync(store.inside(project, `.cache/frames/${item.id}.webp`), out.image);
           if (out.height !== item.h) resized.push({ page, id: item.id, from: item.h, to: out.height });
-          writeFileSync(store.inside(project, `.cache/anchors/${item.id}.json`), JSON.stringify({ src: srcTime, deps, w: item.w, h: out.height, anchors: out.anchors, parts: out.parts, contrast: out.contrast }));
+          writeFileSync(store.inside(project, `.cache/anchors/${item.id}.json`), JSON.stringify({ src: srcTime, deps, w: item.w, h: out.height, anchors: out.anchors, parts: out.parts, contrast: out.contrast, overflow: out.overflow, sizes: out.sizes }));
         } catch (error) {
           failed.push({ id: item.id, error: error.message });
         }
