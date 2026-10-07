@@ -146,6 +146,12 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .zoombar[hidden] { display: none; }
 .zoombar .icon-btn, .zoombar .zoom-pct { border-radius: 999px; }
 .zoom-pct { min-width: 58px; height: 34px; font: 700 13px var(--font-mono); }
+/* arrows that cross, overlap or cut through an item: how many, and a click steps through them */
+.warn-btn { display: inline-flex; align-items: center; gap: 5px; height: 34px; padding: 0 12px 0 10px; border: 0; border-radius: 999px; background: color-mix(in srgb, var(--accent) 12%, transparent); color: var(--accent); font: 700 13px var(--font-mono); transition: background-color var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease); }
+.warn-btn[hidden] { display: none; }
+.warn-btn:hover { background: color-mix(in srgb, var(--accent) 20%, transparent); }
+.warn-btn:active { transform: scale(0.94); }
+.warn-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 
 .inspector {
   position: absolute; top: 14px; right: 14px; z-index: 6; width: min(var(--insp-w), calc(100% - 28px));

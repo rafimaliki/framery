@@ -20,7 +20,8 @@ const has = (name) => {
 const data = flag('data');
 const dataRoot = () => resolve(data ?? process.env.FRAMERY_DATA ?? 'framery');
 
-const port = Number(flag('port') ?? process.env.PORT ?? 4173);
+const asked = flag('port') ?? process.env.PORT;
+const port = Number(asked ?? 4173);
 const quiet = has('no-render');
 const force = has('force');
 const project = flag('project');
@@ -29,7 +30,7 @@ const [command = 'serve', ...rest] = argv;
 try {
   if (command === 'serve') {
     const { serve } = await import('../src/server.mjs');
-    serve({ root: dataRoot(), port, autoRender: !quiet });
+    serve({ root: dataRoot(), port, strict: asked != null, autoRender: !quiet });
   } else if (command === 'mcp') {
     (await import('../src/mcp.mjs')).mcp({ root: dataRoot() });
   } else if (command === 'init') {

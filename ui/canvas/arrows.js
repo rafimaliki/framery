@@ -24,6 +24,7 @@ export function createArrows(svg, { animated, lineStyle }) {
   let titled = []; // the items whose caption a label should not cover
   let anchor = null; // the view the layer was last fully drawn at
   let selected = null;
+  let warned = new Set(); // arrows check.js says draw badly: they glow until the layout is fixed
   let only = null; // a Set of arrow ids when a frame or group is focused: the rest stay hidden
   let timer = 0;
 
@@ -49,6 +50,7 @@ export function createArrows(svg, { animated, lineStyle }) {
       g.append(nodes.lab);
     }
     g.classList.toggle('sel', geometry.id === selected);
+    g.classList.toggle('warn', warned.has(geometry.id));
     return { geometry, nodes };
   }
 
@@ -116,6 +118,11 @@ export function createArrows(svg, { animated, lineStyle }) {
     only(ids) {
       only = ids;
       anchor = null;
+    },
+
+    warn(ids) {
+      warned = ids;
+      for (const { geometry, nodes } of drawn) nodes.g.classList.toggle('warn', ids.has(geometry.id));
     },
 
     select(id) {
