@@ -15,7 +15,7 @@ const TYPES = ['frame', 'group', 'node', 'table'];
 const SHAPES = { terminal: [160, 56], process: [180, 72], diamond: [200, 120] };
 const TONES = ['neutral', 'positive', 'negative'];
 const SIDES = ['top', 'right', 'bottom', 'left'];
-const ITEM_KEYS = ['id', 'type', 'x', 'y', 'w', 'h', 'title', 'step', 'description', 'src', 'device', 'shape', 'parent', 'autoHeight', 'columns', 'rows', 'marks'];
+const ITEM_KEYS = ['id', 'type', 'x', 'y', 'w', 'h', 'title', 'step', 'description', 'src', 'device', 'shape', 'parent', 'autoHeight', 'sizes', 'columns', 'rows', 'marks'];
 const ARROW_KEYS = ['id', 'from', 'to', 'label', 'tone', 'fromSide', 'toSide'];
 
 // Where the studio runs: the address the server wrote when it started, while that process is alive.
@@ -47,6 +47,12 @@ export function anchorsOf(store, project, frame) {
 }
 
 function validate(store, project, page) {
+  for (const item of page.items) {
+    if (item.sizes === undefined) continue;
+    if (item.type !== 'frame' || !Array.isArray(item.sizes)) fail(`${item.id}: sizes is a list of device sizes, frames only`);
+    for (const size of item.sizes) if (!DEVICES[size]) fail(`${item.id}: size ${size} is not one of ${Object.keys(DEVICES).join(', ')}`);
+    if (new Set(item.sizes).size !== item.sizes.length || item.sizes.includes(item.device)) fail(`${item.id}: each size once, and not the frame's own device`);
+  }
   const ids = new Set();
   for (const item of page.items) {
     if (ids.has(item.id)) fail(`duplicate id ${item.id}`);
@@ -172,6 +178,7 @@ const itemProps = {
   shape: t.one(Object.keys(SHAPES), 'node only'),
   parent: t.str('id of the group this item sits in'),
   autoHeight: t.bool('frame only: render_frames re-measures its height from the page'),
+  sizes: { type: 'array', items: { type: 'string' }, description: `frame only: other device sizes the same page must work at (${Object.keys(DEVICES).join(', ')}); check_design checks each, the player shows each` },
   columns: { type: 'array', items: { type: 'object' }, description: 'table only: [{id, title, note?}]; the width follows the count' },
   rows: { type: 'array', items: { type: 'object' }, description: 'table only: [{id, title, link?: "page/item", cells: {columnId: text}}]; the height follows the count' },
   marks: { type: 'object', description: `table only: cell text drawn as a pill, e.g. {"built": "positive"}; styles ${tables.MARK_STYLES.join(', ')}` },
@@ -567,7 +574,14 @@ export const commands = {
         }
       }
       for (const frame of items.filter((i) => i.type === 'frame')) {
-        const found = measured(frame.id)?.contrast;
+        const cached = measured(frame.id);
+        if (cached?.overflow > 1) problems.push({ item: frame.id, problem: `${frame.id} runs ${cached.overflow}px past its right edge at its own width (${frame.w}px)` });
+        const already = new Set((cached?.contrast ?? []).map((c) => c.text)); // said once, at its own size
+        for (const [size, at] of Object.entries(cached?.sizes ?? {})) {
+          if (at.overflow > 1) problems.push({ item: frame.id, problem: `${frame.id} runs ${at.overflow}px past its right edge at ${size} width (${at.w}px)` });
+          for (const c of at.contrast.filter((c) => !already.has(c.text))) problems.push({ item: frame.id, problem: `"${c.text}" at ${size} width is ${c.ratio}:1 (${c.fg} on ${c.bg}), needs ${c.need}:1` });
+        }
+        const found = cached?.contrast;
         if (!found) unmeasured.add(frame.id);
         const said = new Set(); // the same text in the same colours, said once per frame
         for (const c of found ?? []) {

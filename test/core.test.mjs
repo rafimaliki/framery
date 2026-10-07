@@ -399,6 +399,20 @@ test('check_design: small tap targets, low contrast text, and anchors that are g
   assert.match((await call('check_design', {})).problems[0].problem, /no element "go" any more/);
 });
 
+test('screen sizes: names checked, overflow found at the size that breaks, not at the one that fits', async (t) => {
+  const { call, store, project } = scratch();
+  await call('add_item', { type: 'frame', id: 'a', src: 'a.html', device: 'phone' });
+  await assert.rejects(call('update_item', { id: 'a', patch: { sizes: ['watch'] } }), /size watch is not one of/);
+  await assert.rejects(call('update_item', { id: 'a', patch: { sizes: ['phone'] } }), /not the frame's own device/);
+  await call('update_item', { id: 'a', patch: { sizes: ['tablet'] } });
+  if (!findBrowser()) return t.skip('no Chrome or Edge here');
+  writeFileSync(join(store.dir(project), 'a.html'), '<body style="margin:0"><div style="width:600px;height:40px;background:#eee"></div></body>');
+  await call('render_frames', { force: true });
+  const found = (await call('check_design', {})).problems.map((p) => p.problem);
+  assert.ok(found.some((p) => /a runs 210px past its right edge at its own width \(390px\)/.test(p)), found.join('; '));
+  assert.ok(!found.some((p) => /at tablet width/.test(p)), '600px fits in 820');
+});
+
 test('paths cannot leave the project', async () => {
   const { call } = scratch();
   await assert.rejects(call('add_item', { type: 'frame', src: '../../etc/passwd' }), /leaves the project|no file/);

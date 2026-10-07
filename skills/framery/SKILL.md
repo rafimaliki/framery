@@ -81,6 +81,9 @@ Conventions that keep the board readable:
   what the picture shows.
 - **Ids are stable and lowercase.** Never change an id with `update_item` or by hand: `rename_item {id, to}` is the
   only safe way, and it carries arrows, children, table links and previews along.
+- **One page, several sizes: one frame.** A page meant to work at another device size too gets
+  `sizes: ["tablet"]` (the frame keeps its own `device`). `render_frames` measures it at each size and
+  `check_design` reports a layout that runs past the edge there; the player shows it live at each.
 - **Frames are html files** in the project folder, built from the project's own css and tokens. A frame
   measures itself: `autoHeight: true` frames get their height from the page when previews render.
 

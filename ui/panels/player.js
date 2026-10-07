@@ -6,6 +6,8 @@
 
 import { api } from '../core/api.js';
 import { h, icon } from '../core/dom.js';
+import { segmented } from './segmented.js';
+import { DEVICES } from '../core/devices.js';
 
 const end = (ref) => ref.split('#')[0];
 const element = (ref) => ref.split('#')[1] ?? null;
@@ -32,7 +34,8 @@ export function createPlayer({ project, page, pageId, rev, onExit = () => {}, on
   const tab = h('a', { class: 'icon-btn', target: '_blank', rel: 'noopener', 'aria-label': 'Play in a new tab', title: 'Play in a new tab', html: icon.external });
   const stage = h('div', { class: 'player__stage' });
   const ways = h('div', { class: 'player__ways' });
-  const dialog = h('dialog', { class: `player${own ? ' player--tab' : ''}`, 'aria-label': 'Play the flow' }, h('header', { class: 'player__head' }, back, title, ...(own ? [] : [tab, close])), stage, ways);
+  const sizes = h('div', { class: 'player__sizes' }); // the device sizes a screen is meant for, to switch between
+  const dialog = h('dialog', { class: `player${own ? ' player--tab' : ''}`, 'aria-label': 'Play the flow' }, h('header', { class: 'player__head' }, back, title, ...(own ? [] : [tab, close])), stage, sizes, ways);
   if (own) dialog.addEventListener('cancel', (event) => event.preventDefault()); // Esc would leave an empty tab
   document.body.append(dialog);
   let trail = []; // ids played, the last one showing
@@ -72,23 +75,41 @@ export function createPlayer({ project, page, pageId, rev, onExit = () => {}, on
     ways.replaceChildren(...leaving.filter((a) => !element(a.from) && it?.type === 'frame').map(way));
     if (!it || it.type !== 'frame') {
       // a question (a diamond), or anything that is not a screen: its ways out are the choices
+      sizes.replaceChildren();
       stage.replaceChildren(h('div', { class: 'player__ask' }, h('p', null, it?.title ?? id), ...(leaving.length ? leaving.map(way) : [h('p', { class: 'player__end' }, 'The flow ends here.')])));
       fit = () => {};
       return;
     }
     const hot = new Map(leaving.filter((a) => element(a.from)).map((a) => [element(a.from), end(a.to)]));
     const frame = h('iframe', { class: 'player__frame', title: it.title ?? it.id, src: api.file(project(), it.src, rev()) });
-    frame.style.width = `${it.w}px`;
-    frame.style.height = `${it.h}px`;
     const box = h('div', { class: 'player__screen' }, frame);
     stage.replaceChildren(box);
+    let [w, hgt] = [it.w, it.h];
     fit = () => {
-      const s = Math.min(1, (stage.clientWidth - PAD) / it.w, (stage.clientHeight - PAD) / it.h);
+      frame.style.width = `${w}px`;
+      frame.style.height = `${hgt}px`;
+      const s = Math.min(1, (stage.clientWidth - PAD) / w, (stage.clientHeight - PAD) / hgt);
       frame.style.transform = `scale(${s})`;
-      box.style.width = `${it.w * s}px`;
-      box.style.height = `${it.h * s}px`;
+      box.style.width = `${w * s}px`;
+      box.style.height = `${hgt * s}px`;
     };
     fit();
+    // a page meant for other sizes too (sizes: ["tablet"]): see it live at each
+    sizes.replaceChildren();
+    if (it.sizes?.length) {
+      const own = it.device ?? 'frame';
+      const pick = segmented({
+        label: 'Size',
+        options: [own, ...it.sizes].map((s) => ({ value: s, label: s })),
+        value: own,
+        onChange: (s) => {
+          [w, hgt] = s === own ? [it.w, it.h] : DEVICES[s];
+          fit();
+          pick.show(s);
+        },
+      });
+      sizes.append(pick.el);
+    }
     frame.addEventListener('load', () => {
       const doc = frame.contentDocument;
       if (!doc) return;

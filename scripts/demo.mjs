@@ -75,6 +75,7 @@ h2 { margin: 0; font-size: 17px; }
 .grid { display: grid; gap: 16px; grid-template-columns: repeat(var(--cols, 3), 1fr); }
 .side { display: grid; grid-template-columns: 220px 1fr; min-height: 100vh; }
 .side nav { padding: 32px 20px; display: grid; align-content: start; gap: 12px; border-right: 1px solid var(--line); background: var(--surface); }
+@media (max-width: 900px) { .side { grid-template-columns: 1fr; } .side nav { display: none; } } /* tablet: the menu goes, the numbers stay */
 .spec { padding: 40px; display: grid; gap: 24px; background: var(--surface); }
 .swatch { display: grid; gap: 6px; font-size: 13px; }
 .swatch i { height: 72px; border-radius: 10px; border: 1px solid var(--line); }
@@ -132,12 +133,12 @@ screen('screens/app/add.html', `<div class="bar"><span class="back">Cancel</span
 screen('screens/app/budgets.html', `<h1>Budgets</h1><div class="grid" style="--cols:2">${[['Groceries', 72], ['Eating out', 94], ['Transport', 40], ['Fun', 15]].map(([t, p]) => `<div class="card"><h2>${t}</h2><p class="muted">${p}% used</p><div class="meter"><i style="width:${p}%${p > 90 ? ';background:var(--negative)' : ''}"></i></div></div>`).join('')}</div><div class="grow"></div>${tabbar('Budgets')}`);
 file('screens/app/dashboard.html', `<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n<link rel="stylesheet" href="../../tokens.css">\n<link rel="stylesheet" href="../../app.css">\n</head>\n<body>\n<div class="side"><nav><h2>Pocket</h2><b>Overview</b><span class="muted">Activity</span><span class="muted">Budgets</span><span class="muted">Accounts</span><span class="muted">Settings</span></nav><main class="screen screen--wide"><h1>Overview</h1><div class="grid"><div class="card"><div class="muted">Left this month</div><div class="balance">$1,284.50</div></div><div class="card"><div class="muted">Spent</div><div class="balance out">$1,915.50</div></div><div class="card"><div class="muted">Saved</div><div class="balance in">$420.00</div></div></div>${rows([['Whole Foods', '−$84.12', 'out'], ['Salary', '+$3,200.00', 'in'], ['Netflix', '−$15.49', 'out'], ['Lyft', '−$18.20', 'out']])}</main></div>\n</body>\n</html>\n`);
 await frames('app', [
-  ['home', 'Home', 'phone', '2.1', 'What is left this month, then the last three payments. The meter turns red past 90%.'],
+  ['home', 'Home', 'phone', '2.1', 'What is left this month, then the last three payments. The meter turns red past 90%. The same page serves tablets.', { sizes: ['tablet'] }],
   ['activity', 'Activity', 'phone', '2.2', 'Every payment, newest first, grouped by day. Search covers merchant and note.'],
   ['payment', 'Payment', 'phone', '2.3', 'One payment. Changing its category moves it between budgets at once.'],
   ['add', 'Add expense', 'phone', '2.4', 'For cash. The amount pad opens first; Save needs an amount.'],
   ['budgets', 'Budgets', 'tablet', '3.1', 'Tablet layout: two columns of budget cards.'],
-  ['dashboard', 'Overview', 'desktop', '4.1', 'Web: the same numbers as home, with room for the full list.'],
+  ['dashboard', 'Overview', 'desktop', '4.1', 'Web: the same numbers as home, with room for the full list. Also opened on tablets.', { sizes: ['tablet'] }],
 ]);
 await call('arrange', { page: 'app', ids: ['budgets', 'dashboard'], x: 0, y: 2200, gap: 200 });
 for (const [from, to, label, tone] of [
