@@ -46,6 +46,7 @@ All writes go through the tools. They validate, keep ids stable, and the open st
 | anchor to an element | `connect {from:"frame-id#element-id", ...}` — the element needs `id="..."` or `data-anchor="..."` in the frame's html; `list_anchors {frame}` shows what exists |
 | place things | `move_items {ids, dx, dy}`, `arrange {ids, direction:"row"|"column", gap}`, or give `x`,`y` on add |
 | move to another page | `move_to_page {page, ids, to, dx?, dy?}`: a group takes its members; arrows between moved items go along, an arrow that would cross pages is refused |
+| screens people can use | `check_design {page}`: tap targets under 44x44 on phone/tablet, text below WCAG contrast, arrows anchored to elements that are gone; fix what it lists before you finish (after `render_frames`) |
 | arrows draw clean | `check_arrows {page}`: crossings, overlaps, arrows through items, labels covering items or each other; must be empty |
 | change anything | `update_item {id, patch}`, `update_arrow {id, patch}`, `remove_item`, `remove_arrow` |
 | a new page | `add_page {id, title}` |

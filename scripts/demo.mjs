@@ -34,7 +34,7 @@ file(
   --ink-soft: #6b6d76;
   --line: #e4e1d9;
   --accent: #3b5bdb;
-  --positive: #2b8a3e;
+  --positive: #237a33;
   --negative: #c92a2a;
   --radius: 14px;
   --font: system-ui, -apple-system, "Segoe UI", sans-serif;
@@ -48,7 +48,7 @@ body { margin: 0; font: 15px/1.45 var(--font); color: var(--ink); background: va
 .screen { min-height: 100vh; display: flex; flex-direction: column; padding: 56px 20px 24px; gap: 16px; }
 .screen--wide { padding: 32px 40px; }
 .bar { display: flex; align-items: center; justify-content: space-between; }
-.back { color: var(--accent); font-weight: 600; }
+.back { color: var(--accent); font-weight: 600; padding: 11px 0; margin: -11px 0; } /* a 44px tap target, laid out as text */
 h1 { margin: 0; font-size: 28px; letter-spacing: -0.02em; }
 h2 { margin: 0; font-size: 17px; }
 .muted { color: var(--ink-soft); }
@@ -199,15 +199,16 @@ for (const [n, id] of many.entries()) {
 }
 await call('group_items', { page: 'stress', id: 'wall', ids: many, title: 'Wall of screens' });
 
-// The seed must draw clean: measure the anchors (needs Chrome or Edge), then no arrow may cross another or cut through an item.
+// The seed must be clean: measure the frames (needs Chrome or Edge), then no arrow may cross another or cut
+// through an item, and no screen may have a small tap target or hard-to-read text.
 try {
   await call('render_frames', {});
 } catch (error) {
-  console.log(`demo: arrows not checked against measured anchors (${error.message})`);
+  console.log(`demo: not checked against measured frames (${error.message})`);
 }
 for (const { id } of store.project(project).pages) {
-  const { problems } = await call('check_arrows', { page: id });
-  if (problems.length) throw new Error(`demo page ${id} draws badly:\n${problems.map((p) => `  ${p.problem}`).join('\n')}`);
+  const problems = [...(await call('check_arrows', { page: id })).problems, ...(await call('check_design', { page: id })).problems];
+  if (problems.length) throw new Error(`demo page ${id} has problems:\n${problems.map((p) => `  ${p.problem}`).join('\n')}`);
 }
 await run(store, 'checkpoint', { project, label: 'demo seeded' });
 console.log(`demo: ${base}`);
