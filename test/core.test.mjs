@@ -3,7 +3,7 @@
 
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
-import { existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
@@ -12,11 +12,15 @@ import { run } from '../src/commands.mjs';
 import { findBrowser } from '../src/browser.mjs';
 import { doctor } from '../src/doctor.mjs';
 import { fit } from '../src/export.mjs';
-import { checkArrows } from '../src/arrow-check.mjs';
+import { checkArrows } from '../ui/canvas/check.js';
 import { resolve } from '../ui/canvas/geometry.js';
 import { gapsOf } from '../ui/canvas/renderers/group.js';
+import { labelAt } from '../ui/canvas/routes.js';
+import { layoutFlow } from '../src/layout.mjs';
 import { init } from '../src/init.mjs';
 import { Store } from '../src/store.mjs';
+import { serve } from '../src/server.mjs';
+import { createServer } from 'node:net';
 
 const PKG = fileURLToPath(new URL('..', import.meta.url));
 
@@ -88,6 +92,95 @@ test('a group caption has the room up to the item above it, or to the top of the
     { id: 'aside', type: 'frame', x: 2000, y: 0, w: 390, h: 844 },
   ]);
   assert.deepEqual([gaps.get('outer'), gaps.get('top'), gaps.get('low')], [Infinity, 48, 52]);
+});
+
+test('layout_flow: the longest path in a row, the happier branch on a tie, states under their screen', () => {
+  const at = (id, w = 390, h = 844) => ({ id, type: 'frame', x: Math.random() * 3000, y: Math.random() * 3000, w, h });
+  const page = {
+    id: 'p',
+    items: [at('home'), at('list'), at('detail'), at('add'), at('q', 200, 120), at('ok'), at('error'), at('note')],
+    arrows: [
+      { id: '1', from: 'home#add', to: 'add', tone: 'positive' }, // a dead end, positive or not
+      { id: '2', from: 'home#all', to: 'list' },
+      { id: '3', from: 'list', to: 'detail' },
+      { id: '4', from: 'detail', to: 'q' },
+      { id: '5', from: 'q', to: 'error', tone: 'negative' },
+      { id: '6', from: 'q', to: 'ok', tone: 'positive' },
+      { id: '7', from: 'error#retry', to: 'detail' },
+    ],
+  };
+  layoutFlow(page, page.items.map((i) => i.id), { x: 0, y: 0 });
+  const pos = Object.fromEntries(page.items.map((i) => [i.id, [Math.round(i.x), Math.round(i.y)]]));
+  const row = ['home', 'list', 'detail', 'q', 'ok'];
+  assert.deepEqual(row.map((id) => pos[id][0]), [...row.map((id) => pos[id][0])].sort((a, b) => a - b), 'the main path reads left to right');
+  assert.ok(row.every((id) => pos[id][1] < 844), 'and sits in the first row');
+  assert.equal(pos.error[0], pos.detail[0], 'a failure state goes under the screen it returns to');
+  assert.equal(pos.add[0], pos.home[0], 'a dead end goes under the screen that leads to it');
+  assert.ok(pos.error[1] > 844 && pos.add[1] > 844);
+  assert.ok(pos.note[0] > pos.ok[0], 'an unconnected item goes after the row');
+});
+
+test('a label slides along its line to a clear spot', () => {
+  const line = [[0, 0], [0, 400]];
+  assert.deepEqual(labelAt(line, [0, 200], 100, []), [0, 200], 'nothing in the way: the middle');
+  const moved = labelAt(line, [0, 200], 100, [{ x: -60, y: 150, w: 120, h: 120 }]);
+  assert.equal(moved[0], 0);
+  assert.ok(moved[1] + 10 <= 150 || moved[1] - 10 >= 270, 'off the box, on the line');
+});
+
+test('batch runs calls in order as one history entry, and a failing call leaves nothing changed', async () => {
+  const { call, store, project } = scratch();
+  const files = () => readFileSync(join(store.dir(project), 'pages', 'flows.json'), 'utf8');
+  const out = await call('batch', {
+    calls: [
+      { tool: 'add_item', args: { type: 'frame', id: 'a', src: 'a.html', device: 'phone' } },
+      { tool: 'add_item', args: { type: 'frame', id: 'b', src: 'b.html', device: 'phone' } },
+      { tool: 'connect', args: { from: 'a', to: 'b' } },
+    ],
+  });
+  assert.equal(out.length, 3);
+  const trail = await run(store, 'history', { project });
+  assert.deepEqual(trail[0].tools, ['batch'], 'one entry for the three calls');
+  const before = files();
+  await assert.rejects(
+    call('batch', { calls: [{ tool: 'update_item', args: { id: 'a', patch: { title: 'Renamed' } } }, { tool: 'add_page', args: { id: 'p2', title: 'P2' } }, { tool: 'connect', args: { from: 'a', to: 'ghost' } }] }),
+    /call 3 \(connect\).*Nothing was changed/,
+  );
+  assert.equal(files(), before, 'the first call was undone');
+  assert.ok(!existsSync(join(store.dir(project), 'pages', 'p2.json')), 'a file a call made is gone');
+  assert.ok(!store.project(project).pages.some((p) => p.id === 'p2'));
+  await assert.rejects(call('batch', { calls: [{ tool: 'undo', args: {} }] }), /cannot run inside a batch/);
+});
+
+test('rename_item carries arrows, children, table links and the preview to the new id', async () => {
+  const { call, store, project } = scratch();
+  await call('add_item', { type: 'frame', id: 'a', src: 'a.html', device: 'phone', x: 0, y: 0 });
+  await call('add_item', { type: 'frame', id: 'b', src: 'b.html', device: 'phone', x: 600, y: 0 });
+  await call('connect', { from: 'a#go-a', to: 'b' });
+  await call('group_items', { id: 'flow', ids: ['a', 'b'], title: 'Flow' });
+  await run(store, 'add_page', { project, id: 'plan', title: 'Plan' });
+  await call('add_item', { page: 'plan', type: 'table', id: 't', title: 'T', columns: [{ id: 'c', title: 'C' }], rows: [{ id: 'r', title: 'R', link: 'flows/a', cells: {} }] });
+  mkdirSync(join(store.dir(project), '.cache', 'frames'), { recursive: true });
+  writeFileSync(join(store.dir(project), '.cache', 'frames', 'a.webp'), 'x');
+  await assert.rejects(call('rename_item', { id: 'a', to: 'b' }), /taken/);
+  const out = await call('rename_item', { id: 'a', to: 'start' });
+  assert.deepEqual([out.arrows, out.links], [1, 1]);
+  const page = store.page(project, 'flows');
+  assert.equal(page.arrows[0].from, 'start#go-a', 'the anchor stays');
+  assert.equal(page.items.find((i) => i.id === 'start').parent, 'flow');
+  assert.equal(store.page(project, 'plan').items[0].rows[0].link, 'flows/start');
+  assert.ok(existsSync(join(store.dir(project), '.cache', 'frames', 'start.webp')));
+});
+
+test('move_page reorders the sidebar and refuses pages that do not exist', async () => {
+  const { store, project } = scratch();
+  const call = (tool, args) => run(store, tool, { project, ...args });
+  await call('add_page', { id: 'two', title: 'Two' });
+  await call('add_page', { id: 'three', title: 'Three' });
+  assert.deepEqual((await call('move_page', { id: 'three', before: 'flows' })).pages, ['three', 'flows', 'two']);
+  assert.deepEqual((await call('move_page', { id: 'three' })).pages, ['flows', 'two', 'three']);
+  await assert.rejects(call('move_page', { id: 'two', before: 'nope' }), /no page nope/);
+  await assert.rejects(call('move_page', { id: 'nope' }), /no page nope/);
 });
 
 test('move_to_page carries a group, its members and their arrows; refuses crossing arrows and clashing ids', async () => {
@@ -254,9 +347,42 @@ test('export: a frame as png, pdf and svg, a group through the studio, and a bad
   await assert.rejects(call('export_item', { id: 'a', format: 'gif' }), /format must be one of/);
 });
 
+test('check_design: small tap targets, low contrast text, and anchors that are gone', async (t) => {
+  if (!findBrowser()) return t.skip('no Chrome or Edge here');
+  const { call, store, project } = scratch();
+  const file = join(store.dir(project), 'a.html');
+  writeFileSync(file, '<body style="margin:0;background:#fff"><p style="color:#999">Faint words</p><p style="color:#222">Clear words</p><button id="go" style="width:20px;height:20px"></button><button id="ok" style="width:120px;height:48px">OK</button></body>');
+  await call('add_item', { type: 'frame', id: 'a', src: 'a.html', device: 'phone', x: 0, y: 0 });
+  await call('add_item', { type: 'frame', id: 'b', src: 'b.html', device: 'phone', x: 600, y: 0 });
+  await call('connect', { from: 'a#go', to: 'b' });
+  await call('connect', { from: 'a#ok', to: 'b' });
+  assert.deepEqual((await call('check_design', {})).unmeasured, ['a', 'b'], 'nothing rendered yet');
+  await call('render_frames', {});
+  const found = (await call('check_design', {})).problems.map((p) => p.problem);
+  assert.equal(found.length, 2, found.join('; '));
+  assert.match(found[0], /a#go is 20x20, under 44x44/);
+  assert.match(found[1], /"Faint words" is 2\.85:1 \(#999999 on #ffffff\), needs 4\.5:1/);
+  writeFileSync(file, readFileSync(file, 'utf8').replace('id="go" ', ''));
+  assert.match((await call('check_design', {})).problems[0].problem, /no element "go" any more/);
+});
+
 test('paths cannot leave the project', async () => {
   const { call } = scratch();
   await assert.rejects(call('add_item', { type: 'frame', src: '../../etc/passwd' }), /leaves the project|no file/);
+});
+
+test('the studio takes the next free port unless one was asked for, and link follows it', async () => {
+  const { store, project } = scratch();
+  const listening = (server) => new Promise((ok, no) => server.once('listening', ok).once('error', no));
+  const busy = createServer().listen(0, '127.0.0.1');
+  await listening(busy);
+  const taken = busy.address().port;
+  const studio = serve({ root: store.root, port: taken, autoRender: false, quiet: true });
+  await new Promise((ok) => studio.once('listening', ok)); // the busy port's error is the server's own to handle
+  assert.equal(studio.address().port, taken + 1);
+  assert.match(await run(store, 'link', { project, page: 'flows' }), new RegExp(`:${taken + 1}/#/`));
+  studio.close();
+  busy.close();
 });
 
 test('MCP: initialize, list tools, call one, report an error as isError', async () => {

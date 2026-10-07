@@ -45,7 +45,7 @@ async function download(params) {
   link.click();
   link.remove();
   setTimeout(() => URL.revokeObjectURL(url), 10000);
-  return { name, size: response.headers.get('x-framery-size') };
+  return { name, size: response.headers.get('x-framery-size'), scale: Number(response.headers.get('x-framery-scale')) };
 }
 
 export function exportControls({ project, page, id, what }) {
@@ -78,6 +78,10 @@ export function exportControls({ project, page, id, what }) {
     try {
       const out = await download({ project, page, id, format: prefs.format, scale: prefs.scale, theme: document.documentElement.dataset.theme ?? 'light' });
       status.textContent = `Saved ${out.name}${out.size ? ` · ${out.size}` : ''}`;
+      // src/export.mjs lowers the scale of an item too large to draw at the one asked for: say so, and what keeps it sharp
+      if (prefs.format !== 'pdf' && out.scale && out.scale < Number(prefs.scale) - 0.01) {
+        status.textContent += `. Exported at ${Math.round(out.scale * 100) / 100}×: too large for ${prefs.scale}×. Use PDF for sharp text.`;
+      }
     } catch (error) {
       status.textContent = error.message;
     } finally {

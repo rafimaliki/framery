@@ -29,7 +29,7 @@ Framery gives the agent a board it can read and edit through tools, and gives yo
 | | |
 |---|---|
 | **Free canvas** | Dotted, full-page, light and dark. Pan, pinch and zoom. Frames of any size (phone, tablet, desktop, custom), groups like Figma sections, flowchart nodes (diamonds for branches), and thin labelled arrows in green, red or grey. |
-| **Arrows that mean something** | An arrow starts on the control that causes it ("tap Save") and ends on the screen it opens. Straight, curved or elbow lines. |
+| **Arrows that mean something** | An arrow starts on the control that causes it ("tap Save") and ends on the screen it opens. Straight, curved or elbow lines. Arrows that cross, overlap or cut through a screen glow, with a count on the zoom bar. |
 | **Details on click** | Click a screen, a group, a component or an arrow to read its description. Layers on the left, one row per component instance. |
 | **Components** | A button used in forty screens is one definition. Change it once and every frame follows. Repeated markup is detected and can be promoted. |
 | **Design system and plan** | Pages are just boards. A design system page shows components alone; a plan page is a table (flows against phases) that agents update one cell at a time. |
@@ -69,7 +69,7 @@ npx framery init
 npx framery
 ```
 
-Then open <http://127.0.0.1:4173>.
+Then open <http://127.0.0.1:4173> (if that port is busy, the studio takes the next free one and prints it).
 
 `init` does four things, and is safe to run again:
 
@@ -108,7 +108,7 @@ npx framery doctor                                        # confirm
 ## Using it day to day
 
 ```text
-npx framery                  start the studio on http://127.0.0.1:4173 (--port N, --no-render)
+npx framery                  start the studio on http://127.0.0.1:4173 or the next free port (--port N: that port or fail; --no-render)
 npx framery mcp              the stdio MCP server (registered for you by init)
 npx framery init             wire a project; safe to repeat
 npx framery doctor           check versions and wiring
@@ -123,8 +123,8 @@ arrow can start or end on it.
 
 ### The tools an agent gets
 
-`outline`, `get_page`, `add_item`, `update_item`, `move_items`, `move_to_page`, `arrange`, `group_items`, `connect`, `check_arrows`,
-`list_anchors`, `set_cell` (and `add_row`, `add_column`, …), `set_token`, `render_frames`, `export_item`, `link`;
+`outline`, `get_page`, `add_item`, `update_item`, `rename_item`, `move_items`, `move_to_page`, `move_page`, `layout_flow`, `arrange`, `group_items`, `connect`, `check_arrows`, `check_design`,
+`batch`, `list_anchors`, `set_cell` (and `add_row`, `add_column`, …), `set_token`, `render_frames`, `export_item`, `link`;
 components: `create_component`, `update_component`, `use_component`, `promote_component`, `find_candidates`, …;
 and `history`, `checkpoint`, `undo`, `restore`. The skill tells an agent which to reach for.
 

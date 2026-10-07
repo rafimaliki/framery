@@ -44,11 +44,15 @@ All writes go through the tools. They validate, keep ids stable, and the open st
 | a flowchart shape | `add_item {type:"node", shape:"diamond"|"process"|"terminal", title}` |
 | a connection | `connect {from, to, label, tone:"positive"|"negative"|"neutral"}` |
 | anchor to an element | `connect {from:"frame-id#element-id", ...}` — the element needs `id="..."` or `data-anchor="..."` in the frame's html; `list_anchors {frame}` shows what exists |
+| lay out a flow | `layout_flow {group}` (or `{ids}`): from the arrows, the happy path in a row and every state under its screen; prefer it to placing by hand |
 | place things | `move_items {ids, dx, dy}`, `arrange {ids, direction:"row"|"column", gap}`, or give `x`,`y` on add |
 | move to another page | `move_to_page {page, ids, to, dx?, dy?}`: a group takes its members; arrows between moved items go along, an arrow that would cross pages is refused |
+| screens people can use | `check_design {page}`: tap targets under 44x44 on phone/tablet, text below WCAG contrast, arrows anchored to elements that are gone; fix what it lists before you finish (after `render_frames`) |
 | arrows draw clean | `check_arrows {page}`: crossings, overlaps, arrows through items, labels covering items or each other; must be empty |
 | change anything | `update_item {id, patch}`, `update_arrow {id, patch}`, `remove_item`, `remove_arrow` |
-| a new page | `add_page {id, title}` |
+| many edits at once | `batch {page?, calls:[{tool, args}]}`: one request, all or nothing, one history entry. Use it for any run of several edits (renames, a whole flow) |
+| a better id | `rename_item {id, to}`: arrows, children, table links on any page and the cached preview follow |
+| a new page | `add_page {id, title}`; reorder with `move_page {id, before?}` (omit `before` to put it last) |
 | tokens | `set_token {name, value}` |
 | a table | `add_item {type:"table", columns:[{id,title,note?}], rows:[{id,title,link?:"page/item",cells:{columnId:text}}], marks:{"built":"positive"}}` |
 | progress in a table | `set_cell {id, row, column, value}`: one cell, the cheapest edit; `add_row`, `remove_row`, `add_column`, `remove_column` |
@@ -75,7 +79,8 @@ Conventions that keep the board readable:
 - **A group is one flow.** Frames inside it read left to right; its description holds the flow's rules.
 - **Descriptions are short and specific.** What the frame is, then the rule it must keep. No restating
   what the picture shows.
-- **Ids are stable and lowercase.** Do not rename an id other work refers to.
+- **Ids are stable and lowercase.** Never change an id with `update_item` or by hand: `rename_item {id, to}` is the
+  only safe way, and it carries arrows, children, table links and previews along.
 - **Frames are html files** in the project folder, built from the project's own css and tokens. A frame
   measures itself: `autoHeight: true` frames get their height from the page when previews render.
 
@@ -142,7 +147,7 @@ generated component regions and previews follow. Do not restore on your own init
 
 `npx framery cmd <tool> '<json>'` runs any tool from a shell and prints the result;
 `npx framery tools` lists them with descriptions. Start the studio with `npx framery`
-(http://127.0.0.1:4173).
+(http://127.0.0.1:4173, or the next free port: `link` knows which).
 
 ## Updating framery
 
