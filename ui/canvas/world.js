@@ -69,7 +69,7 @@ export function createWorld(root, renderers, ctx) {
         if (!byType.has(entry.item.type)) byType.set(entry.item.type, []);
         byType.get(entry.item.type).push(entry);
       }
-      for (const [type, entries] of byType) renderers[type].tuneAll?.(entries, { scale: view.s, centre, settled }, ctx);
+      for (const [type, entries] of byType) renderers[type].tuneAll?.(entries, { scale: view.s, centre, settled, items }, ctx);
     },
 
     hide(ids) {

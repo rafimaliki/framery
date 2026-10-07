@@ -4,6 +4,7 @@
 
 import { createAnchors } from './anchors.js';
 import { createArrows } from './arrows.js';
+import { checkArrows, flagged } from './check.js';
 import { createOutline } from './outline.js';
 import { renderers } from './renderers/index.js';
 import { createViewport } from './viewport.js';
@@ -117,7 +118,7 @@ export function createCanvas({ view: viewEl, world: worldEl, arrows: svg }, deps
     const settle = () => {
       if (!page) return;
       if (selectedComponent) showComponent(selectedComponent, false);
-      arrows.setData(page.items, page.arrows, boxOf);
+      reroute();
       redraw();
     };
     settle();
@@ -185,6 +186,14 @@ export function createCanvas({ view: viewEl, world: worldEl, arrows: svg }, deps
     if (page) redraw();
   }
 
+  // Route the arrows again and check them: the ones that cross, overlap or cut through an item are marked.
+  function reroute() {
+    arrows.setData(page.items, page.arrows, boxOf);
+    const problems = checkArrows(page.items, page.arrows, boxOf, deps.lineStyle());
+    arrows.warn(flagged(problems));
+    deps.onProblems?.(problems);
+  }
+
   function redraw() {
     viewport.set(viewport.get());
   }
@@ -192,7 +201,7 @@ export function createCanvas({ view: viewEl, world: worldEl, arrows: svg }, deps
   function loadAnchors() {
     const wanted = page.arrows.flatMap((a) => [a.from, a.to]).filter(isFrameRef).map((ref) => ref.split('#')[0]);
     anchors.ensure(wanted, () => {
-      arrows.setData(page.items, page.arrows, boxOf);
+      reroute();
       redraw();
     });
   }
@@ -207,7 +216,7 @@ export function createCanvas({ view: viewEl, world: worldEl, arrows: svg }, deps
         world.clear();
       }
       world.setItems(page.items);
-      arrows.setData(page.items, page.arrows, boxOf);
+      reroute();
       syncArrows();
       loadAnchors();
       if (fresh) {
@@ -221,6 +230,7 @@ export function createCanvas({ view: viewEl, world: worldEl, arrows: svg }, deps
       page = null;
       world.clear();
       arrows.setData([], [], boxOf);
+      deps.onProblems?.([]);
     },
 
     select(sel, { focus: shouldFocus = false } = {}) {
@@ -254,6 +264,7 @@ export function createCanvas({ view: viewEl, world: worldEl, arrows: svg }, deps
     // Arrows are routed again in the style the person chose.
     restyleArrows() {
       arrows.restyle();
+      if (page) reroute();
       redraw();
     },
 

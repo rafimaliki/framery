@@ -13,10 +13,12 @@ import { createLayers } from './panels/layers.js';
 import { createHistory } from './panels/history.js';
 import { createSettingsMenu } from './panels/settings-menu.js';
 import { createSidebar } from './panels/sidebar.js';
+import { createFinder } from './panels/finder.js';
 import { along, installShortcuts } from './panels/shortcuts.js';
 import { createZoombar } from './panels/zoombar.js';
 
 const $ = (id) => document.getElementById(id);
+api.version().then((v) => ($('version').textContent = `v${v}`), () => {});
 const { state } = session;
 let detailClosed = false;
 let drawnLines = settings.get().lines; // arrows are only re-routed when this one setting changes
@@ -31,6 +33,7 @@ const canvas = createCanvas(
     lineStyle: settings.lineStyle,
     arrowMode: settings.arrowMode,
     onView: (view) => zoombar.show(view),
+    onProblems: (list) => zoombar.problems(list),
     onPick: (sel) => session.select(sel, { quiet: true }),
     // A table row that links somewhere ("flows/6_entry") opens that item on that page.
     onOpen: (link) => {
@@ -40,7 +43,7 @@ const canvas = createCanvas(
   },
 );
 
-const zoombar = createZoombar({ arrows: $('arrows-mode'), out: $('zoom-out'), in: $('zoom-in'), pct: $('zoom-pct'), fit: $('zoom-fit') }, canvas, settings);
+const zoombar = createZoombar({ warn: $('arrow-warn'), arrows: $('arrows-mode'), out: $('zoom-out'), in: $('zoom-in'), pct: $('zoom-pct'), fit: $('zoom-fit') }, canvas, settings, { onPick: (sel) => session.select(sel) });
 const sidebar = createSidebar(
   { app: $('app'), side: $('side'), pages: $('pages'), projects: $('projects'), menu: $('menu'), close: $('side-close') },
   { onNavigate: (route) => navigate(route) },
@@ -61,11 +64,13 @@ const inspector = createInspector($('inspector'), {
 });
 createHistory({ button: $('history-btn'), panel: $('history') }, { project: () => state.project, list: (project) => api.command('history', { project }), restore: (project, n) => api.command('restore', { project, n }) });
 createSettingsMenu({ button: $('settings-btn'), panel: $('settings') }, settings);
+const finder = createFinder({ project: () => state.project, pages: () => state.info?.pages ?? [], onGo: (page, id) => navigate({ project: state.project, page, id }) });
 installShortcuts({
   canvas,
   toggleSidebar: () => sidebar.toggle(),
   clearSelection: () => session.select(null),
   enabled: () => !!state.page,
+  find: () => finder.open(),
   walk: (dir) => {
     const id = along(state.page, state.sel, dir);
     if (id) session.select({ kind: 'item', id });

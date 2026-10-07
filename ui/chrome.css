@@ -133,6 +133,9 @@ button { font: inherit; color: inherit; cursor: pointer; }
   position: sticky; bottom: 0; margin-top: auto; flex: none;
   display: flex; align-items: center; justify-content: flex-end; padding: 8px 10px; border-top: 1px solid var(--edge);
 }
+/* the running framery, at the left of the footer; the collapsed rail has no room for it */
+.side__version { margin-right: auto; padding-left: 6px; color: var(--ink-faint); font: 600 12px var(--font-mono); }
+.app[data-side="collapsed"] .side__version { display: none; }
 
 /* ---- stage + floating bits ------------------------------------------------------------------- */
 .stage { position: relative; overflow: hidden; min-width: 0; margin: 10px 10px 10px 0; border-radius: 20px; background: var(--bg); box-shadow: 0 0 0 1px var(--edge); }
@@ -146,6 +149,12 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .zoombar[hidden] { display: none; }
 .zoombar .icon-btn, .zoombar .zoom-pct { border-radius: 999px; }
 .zoom-pct { min-width: 58px; height: 34px; font: 700 13px var(--font-mono); }
+/* arrows that cross, overlap or cut through an item: how many, and a click steps through them */
+.warn-btn { display: inline-flex; align-items: center; gap: 5px; height: 34px; padding: 0 12px 0 10px; border: 0; border-radius: 999px; background: color-mix(in srgb, var(--accent) 12%, transparent); color: var(--accent); font: 700 13px var(--font-mono); transition: background-color var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease); }
+.warn-btn[hidden] { display: none; }
+.warn-btn:hover { background: color-mix(in srgb, var(--accent) 20%, transparent); }
+.warn-btn:active { transform: scale(0.94); }
+.warn-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 
 .inspector {
   position: absolute; top: 14px; right: 14px; z-index: 6; width: min(var(--insp-w), calc(100% - 28px));
@@ -255,3 +264,16 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .prop__name { font-weight: 700; }
 .prop__type { padding: 1px 7px; border-radius: 999px; background: var(--hover); color: var(--ink-soft); font: 600 11px var(--font-mono); }
 .prop__detail { min-width: 0; text-align: right; color: var(--ink-soft); font-size: 12px; overflow-wrap: anywhere; }
+
+/* Find on any page (panels/finder.js): a native dialog near the top, over a dimmed studio */
+.finder { width: min(560px, calc(100vw - 32px)); max-height: min(520px, calc(100vh - 120px)); margin: 12vh auto auto; padding: 8px; border: 1px solid var(--edge); border-radius: var(--r-card); background: var(--surface); color: var(--ink); box-shadow: var(--float); }
+.finder[open] { display: flex; flex-direction: column; gap: 6px; animation: rise var(--dur) var(--ease) both; }
+.finder::backdrop { background: rgba(10, 10, 14, 0.35); }
+.finder__input { width: 100%; padding: 11px 12px; border: 1px solid var(--edge); border-radius: var(--r-ctl); background: var(--bg); color: var(--ink); font: 15px var(--font-ui); }
+.finder__input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+.finder__list { list-style: none; margin: 0; padding: 0; overflow: auto; overscroll-behavior: contain; }
+.finder__hit { display: flex; align-items: center; gap: 8px; padding: 9px 10px; border-radius: var(--r-ctl); cursor: pointer; }
+.finder__hit:hover, .finder__hit[aria-selected="true"] { background: var(--active); }
+.finder__title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+.finder__page { flex: none; color: var(--ink-faint); font-size: 12px; }
+.finder__none { padding: 12px 10px; color: var(--ink-soft); }
