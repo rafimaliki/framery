@@ -9,6 +9,7 @@ async function json(url, init) {
 
 export const api = {
   projects: () => json('/api/projects'),
+  version: () => json('/api/version').then((r) => r.version),
   project: (name) => json(`/p/${name}/project.json`),
   components: (name) => json(`/api/components?project=${encodeURIComponent(name)}`).catch(() => []),
   page: (name, id) => json(`/p/${name}/pages/${id}.json`),
