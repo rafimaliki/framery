@@ -1,10 +1,12 @@
 // What the studio would draw badly: arrows that cross or run along each other, arrows that cut through
 // a frame, table or node, and labels that cover an item or each other. It routes with the studio's own
-// code (ui/canvas) at 1:1, the zoom a person reads labels at, so a page that passes here draws clean there.
+// code at 1:1, the zoom a person reads labels at. The studio runs it to mark arrows; the check_arrows tool
+// runs it in node, so what an agent is told matches what a person sees.
 
-import { meets, resolve, segments } from '../ui/canvas/geometry.js';
-import { PILL_H, labelAt, pillWidth, route } from '../ui/canvas/routes.js';
-import { refItem } from './layout.mjs';
+import { meets, resolve, segments } from './geometry.js';
+import { PILL_H, labelAt, pillWidth, route } from './routes.js';
+
+const refItem = (ref) => ref.split('#')[0];
 
 const SOLID = new Set(['frame', 'table', 'node']);
 const OWN = 48; // an arrow anchored to a control crosses its own frame to the edge; more than this is through it
@@ -25,14 +27,27 @@ function inside([a, b], r) {
   return hi > lo ? (hi - lo) * Math.hypot(dx, dy) : 0;
 }
 
+// A curved arrow as a polyline close enough to test: its cubic sampled at 24 steps.
+function curve([a, b, c, d]) {
+  return Array.from({ length: 25 }, (_, i) => {
+    const t = i / 24;
+    const u = 1 - t;
+    return [0, 1].map((k) => u * u * u * a[k] + 3 * u * u * t * b[k] + 3 * u * t * t * c[k] + t * t * t * d[k]);
+  });
+}
+
+// The ids of the arrows a list of problems names.
+export const flagged = (problems) => new Set(problems.flatMap((p) => p.arrows ?? [p.arrow]));
+
 export function checkArrows(items, arrows, boxOf, style = 'elbow') {
   const byId = new Map(arrows.map((a) => [a.id, a]));
   const solid = items.filter((i) => SOLID.has(i.type));
   const runs = resolve(arrows, items, boxOf).map((g) => {
     const shape = route(style, g.p0, g.n0, g.p1, g.n1, g.via);
+    const line = shape.kind === 'bezier' ? curve(shape.points) : shape.points;
     const w = pillWidth(g.label);
-    const [x, y] = labelAt(shape.points, shape.mid, w, solid);
-    return { id: g.id, segs: segments(shape.points), pill: g.label ? { x: x - w / 2, y: y - PILL_H / 2, w, h: PILL_H } : null };
+    const [x, y] = shape.kind === 'bezier' ? shape.mid : labelAt(shape.points, shape.mid, w, solid);
+    return { id: g.id, segs: segments(line), pill: g.label ? { x: x - w / 2, y: y - PILL_H / 2, w, h: PILL_H } : null };
   });
   const problems = [];
   for (const run of runs) {

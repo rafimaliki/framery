@@ -31,6 +31,7 @@ const canvas = createCanvas(
     lineStyle: settings.lineStyle,
     arrowMode: settings.arrowMode,
     onView: (view) => zoombar.show(view),
+    onProblems: (list) => zoombar.problems(list),
     onPick: (sel) => session.select(sel, { quiet: true }),
     // A table row that links somewhere ("flows/6_entry") opens that item on that page.
     onOpen: (link) => {
@@ -40,7 +41,7 @@ const canvas = createCanvas(
   },
 );
 
-const zoombar = createZoombar({ arrows: $('arrows-mode'), out: $('zoom-out'), in: $('zoom-in'), pct: $('zoom-pct'), fit: $('zoom-fit') }, canvas, settings);
+const zoombar = createZoombar({ warn: $('arrow-warn'), arrows: $('arrows-mode'), out: $('zoom-out'), in: $('zoom-in'), pct: $('zoom-pct'), fit: $('zoom-fit') }, canvas, settings, { onPick: (sel) => session.select(sel) });
 const sidebar = createSidebar(
   { app: $('app'), side: $('side'), pages: $('pages'), projects: $('projects'), menu: $('menu'), close: $('side-close') },
   { onNavigate: (route) => navigate(route) },

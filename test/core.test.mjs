@@ -12,7 +12,7 @@ import { run } from '../src/commands.mjs';
 import { findBrowser } from '../src/browser.mjs';
 import { doctor } from '../src/doctor.mjs';
 import { fit } from '../src/export.mjs';
-import { checkArrows } from '../src/arrow-check.mjs';
+import { checkArrows } from '../ui/canvas/check.js';
 import { resolve } from '../ui/canvas/geometry.js';
 import { init } from '../src/init.mjs';
 import { Store } from '../src/store.mjs';
