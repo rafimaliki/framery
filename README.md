@@ -29,7 +29,7 @@ Framery gives the agent a board it can read and edit through tools, and gives yo
 | | |
 |---|---|
 | **Free canvas** | Dotted, full-page, light and dark. Pan, pinch and zoom. Frames of any size (phone, tablet, desktop, custom), groups like Figma sections, flowchart nodes (diamonds for branches), and thin labelled arrows in green, red or grey. |
-| **Arrows that mean something** | An arrow starts on the control that causes it ("tap Save") and ends on the screen it opens. Straight, curved or elbow lines. |
+| **Arrows that mean something** | An arrow starts on the control that causes it ("tap Save") and ends on the screen it opens. Straight, curved or elbow lines. Arrows that cross, overlap or cut through a screen glow, with a count on the zoom bar. |
 | **Details on click** | Click a screen, a group, a component or an arrow to read its description. Layers on the left, one row per component instance. |
 | **Components** | A button used in forty screens is one definition. Change it once and every frame follows. Repeated markup is detected and can be promoted. |
 | **Design system and plan** | Pages are just boards. A design system page shows components alone; a plan page is a table (flows against phases) that agents update one cell at a time. |
