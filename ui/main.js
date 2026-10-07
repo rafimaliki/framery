@@ -17,6 +17,7 @@ import { installShortcuts } from './panels/shortcuts.js';
 import { createZoombar } from './panels/zoombar.js';
 
 const $ = (id) => document.getElementById(id);
+api.version().then((v) => ($('version').textContent = `v${v}`), () => {});
 const { state } = session;
 let detailClosed = false;
 let drawnLines = settings.get().lines; // arrows are only re-routed when this one setting changes

@@ -11,6 +11,7 @@ import { FramError, Store } from './store.mjs';
 import { commands, run } from './commands.mjs';
 import { sync } from './library.mjs';
 import { record } from './history.mjs';
+import { version } from './doctor.mjs';
 
 const UI = resolve(fileURLToPath(new URL('../ui', import.meta.url)));
 const TYPES = {
@@ -188,6 +189,8 @@ export function serve({ root, port = 4173, autoRender = true, quiet = false }) {
       });
       return;
     }
+
+    if (path === '/api/version') return json(response, 200, { version: version() });
 
     if (path === '/api/projects') {
       const list = store.projects().map((name) => ({ name, title: store.project(name).title ?? name }));

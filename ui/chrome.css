@@ -133,6 +133,9 @@ button { font: inherit; color: inherit; cursor: pointer; }
   position: sticky; bottom: 0; margin-top: auto; flex: none;
   display: flex; align-items: center; justify-content: flex-end; padding: 8px 10px; border-top: 1px solid var(--edge);
 }
+/* the running framery, at the left of the footer; the collapsed rail has no room for it */
+.side__version { margin-right: auto; padding-left: 6px; color: var(--ink-faint); font: 600 12px var(--font-mono); }
+.app[data-side="collapsed"] .side__version { display: none; }
 
 /* ---- stage + floating bits ------------------------------------------------------------------- */
 .stage { position: relative; overflow: hidden; min-width: 0; margin: 10px 10px 10px 0; border-radius: 20px; background: var(--bg); box-shadow: 0 0 0 1px var(--edge); }
