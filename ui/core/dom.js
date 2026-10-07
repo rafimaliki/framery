@@ -31,6 +31,7 @@ export const icon = {
   arrowsNone: svg('<path d="M3 10h11M11 7l3 3-3 3M3.5 3.5l13 13"/>'),
   play: svg('<path d="M6 4v12l10-6Z"/>'),
   back: svg('<path d="M12 4 6 10l6 6"/>'),
+  warn: svg('<path d="M10 3 18 17H2Z"/><path d="M10 8v4M10 14.5v.01"/>'),
   minus: svg('<path d="M4 10h12"/>'),
   fit: svg('<path d="M3 7V3h4M13 3h4v4M17 13v4h-4M7 17H3v-4"/>'),
   sun: svg('<circle cx="10" cy="10" r="3.2"/><path d="M10 2.5v2M10 15.5v2M2.5 10h2M15.5 10h2M4.7 4.7l1.4 1.4M13.9 13.9l1.4 1.4M4.7 15.3l1.4-1.4M13.9 6.1l1.4-1.4"/>'),

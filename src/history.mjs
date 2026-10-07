@@ -157,6 +157,23 @@ function save(p, entries) {
 // ---- recording ------------------------------------------------------------------------------------
 
 // Make sure a baseline exists, so the first change has something to be compared with.
+// The project's files as they are now, and a function that puts back exactly that: rewrites what changed,
+// deletes what is new. batch runs its calls against one, so a failing call leaves nothing half done.
+// ponytail: held in memory and files over MAX_FILE are not kept; fine for design files (html, css, json).
+export function snapshot(store, project) {
+  const { dir } = paths(store, project);
+  const before = new Map([...scan(dir)].map(([path, { hash, full }]) => [path, { hash, bytes: readFileSync(full) }]));
+  return () => {
+    const now = scan(dir);
+    for (const [path, { full }] of now) if (!before.has(path)) rmSync(full);
+    for (const [path, { hash, bytes }] of before) {
+      if (now.get(path)?.hash === hash) continue;
+      mkdirSync(dirname(join(dir, path)), { recursive: true });
+      writeFileSync(join(dir, path), bytes);
+    }
+  };
+}
+
 export function begin(store, project) {
   const p = paths(store, project);
   if (existsSync(p.journal)) return;

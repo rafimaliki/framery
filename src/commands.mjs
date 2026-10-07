@@ -1,15 +1,15 @@
 // The one command surface. The MCP server, the HTTP API and the CLI all call run(); each entry
 // carries its own description and input schema, so the tool list an agent sees is this table.
 
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { checkName, fail } from './store.mjs';
-import { DEVICES, arrange, find, fitGroup, members, outline, place, refElement, refItem, withMembers } from './layout.mjs';
+import { DEVICES, arrange, find, fitGroup, layoutFlow, members, outline, place, refElement, refItem, withMembers } from './layout.mjs';
 import * as tables from './tables.mjs';
 import { cmd, project, t, where } from './kit.mjs';
 import { componentCommands } from './commands-components.mjs';
 import { historyCommands } from './commands-history.mjs';
-import { begin, record } from './history.mjs';
-import { checkArrows } from './arrow-check.mjs';
+import { begin, record, snapshot } from './history.mjs';
+import { checkArrows } from '../ui/canvas/check.js';
 
 const TYPES = ['frame', 'group', 'node', 'table'];
 const SHAPES = { terminal: [160, 56], process: [180, 72], diamond: [200, 120] };
@@ -17,6 +17,17 @@ const TONES = ['neutral', 'positive', 'negative'];
 const SIDES = ['top', 'right', 'bottom', 'left'];
 const ITEM_KEYS = ['id', 'type', 'x', 'y', 'w', 'h', 'title', 'step', 'description', 'src', 'device', 'shape', 'parent', 'autoHeight', 'columns', 'rows', 'marks'];
 const ARROW_KEYS = ['id', 'from', 'to', 'label', 'tone', 'fromSide', 'toSide'];
+
+// Where the studio runs: the address the server wrote when it started, while that process is alive.
+function studioUrl(store) {
+  try {
+    const { url, pid } = JSON.parse(readFileSync(`${store.root}/.cache/studio.json`, 'utf8'));
+    process.kill(pid, 0);
+    return url;
+  } catch {
+    return 'http://127.0.0.1:4173';
+  }
+}
 
 // ---- pages ---------------------------------------------------------------------------------------
 
@@ -287,6 +298,50 @@ export const commands = {
       }),
   ),
 
+  rename_item: cmd(
+    'Give an item a new id, safely: what is inside it, its arrows (anchors kept), table links to it on any page and its cached preview follow.',
+    { ...where, id: t.str('current item id'), to: t.str('new id') },
+    ['id', 'to'],
+    (store, a) => {
+      const name = store.name(a.project);
+      const here = pageId(store, name, a.page);
+      const to = checkName('id', a.to);
+      const page = store.page(name, here);
+      const item = find(page, a.id);
+      if (page.items.some((i) => i.id === to)) fail(`id ${to} is taken on ${here}`);
+      const from = item.id;
+      item.id = to;
+      for (const i of page.items) if (i.parent === from) i.parent = to;
+      const re = (ref) => (refItem(ref) === from ? to + ref.slice(from.length) : ref);
+      let arrows = 0;
+      for (const r of page.arrows ?? []) {
+        const [f, t] = [re(r.from), re(r.to)];
+        if (f !== r.from || t !== r.to) arrows++;
+        [r.from, r.to] = [f, t];
+      }
+      // a table row on any page may link here ("page/id")
+      const pages = new Map([[here, page]]);
+      let links = 0;
+      for (const { id } of store.project(name).pages ?? []) {
+        const other = pages.get(id) ?? store.page(name, id);
+        for (const row of (other.items ?? []).filter((i) => i.type === 'table').flatMap((i) => i.rows ?? [])) {
+          if (row.link === `${here}/${from}`) {
+            row.link = `${here}/${to}`;
+            pages.set(id, other);
+            links++;
+          }
+        }
+      }
+      for (const p of pages.values()) validate(store, name, p);
+      for (const [id, p] of pages) store.savePage(name, id, p);
+      for (const [dir, ext] of [['frames', 'webp'], ['anchors', 'json']]) {
+        const old = store.inside(name, `.cache/${dir}/${from}.${ext}`);
+        if (existsSync(old)) renameSync(old, store.inside(name, `.cache/${dir}/${to}.${ext}`));
+      }
+      return { page: here, from, to, arrows, links };
+    },
+  ),
+
   move_to_page: cmd(
     'Move items to another page; a group takes its members along. Arrows between moved items go with them; an arrow that would cross pages is refused. dx, dy shift them on the way.',
     { ...where, ids: t.ids, to: t.str('target page id'), dx: t.num('right'), dy: t.num('down') },
@@ -329,6 +384,21 @@ export const commands = {
       store.savePage(name, from, source);
       store.savePage(name, to, target);
       return { page: from, to, moved: [...ids], arrows: arrows.map((r) => r.id) };
+    },
+  ),
+
+  layout_flow: cmd(
+    'Lay a flow out from its arrows, instead of placing items by hand: the happy path in one row (positive arrows first at a branch), every state or failure directly under the screen it belongs to. Give a group (its members are laid out and it is refit) or ids. Returns what check_arrows then says, which should be nothing.',
+    { ...where, group: t.str('lay out the members of this group'), ids: t.ids, gap: t.num('between columns, default 140'), rowGap: t.num('between rows, default 160'), x: t.num('left edge; default where the items are'), y: t.num('top edge') },
+    [],
+    async (store, a) => {
+      if (!a.group === !a.ids) fail('give a group or ids, not both');
+      const out = edit(store, a, (page) => {
+        const ids = a.group ? (find(page, a.group), members(page, a.group).map((i) => i.id)) : a.ids;
+        if (!ids.length) fail(`group ${a.group} is empty`);
+        return { moved: layoutFlow(page, ids, a).map((i) => i.id) };
+      });
+      return { ...out, ...(await commands.check_arrows.run(store, { project: a.project, page: out.page })) };
     },
   ),
 
@@ -427,6 +497,26 @@ export const commands = {
     return { removed: a.id };
   }),
 
+  move_page: cmd(
+    'Change where a page sits in the sidebar: before another page, or last when before is omitted.',
+    { project, id: t.str('page id'), before: t.str('the page it should come before') },
+    ['id'],
+    (store, a) => {
+      const name = store.name(a.project);
+      const info = store.project(name);
+      const pages = info.pages ?? [];
+      const page = pages.find((p) => p.id === a.id);
+      if (!page) fail(`no page ${a.id}`);
+      if (a.before === a.id) fail('a page cannot come before itself');
+      const rest = pages.filter((p) => p !== page);
+      const at = a.before == null ? rest.length : rest.findIndex((p) => p.id === a.before);
+      if (at < 0) fail(`no page ${a.before}`);
+      info.pages = [...rest.slice(0, at), page, ...rest.slice(at)];
+      store.saveProject(name, info);
+      return { pages: info.pages.map((p) => p.id) };
+    },
+  ),
+
   list_anchors: cmd(
     'Element ids a frame offers as arrow anchors, with their measured boxes (frame pixels) once the frame has been rendered.',
     { ...where, frame: t.str('frame id') },
@@ -437,6 +527,55 @@ export const commands = {
       const cache = store.inside(name, `.cache/anchors/${frame.id}.json`);
       const boxes = existsSync(cache) ? JSON.parse(readFileSync(cache, 'utf8')).anchors ?? {} : {};
       return anchorsOf(store, name, frame).map((id) => ({ id, box: boxes[id] }));
+    },
+  ),
+
+  check_design: cmd(
+    'Design problems on a page that a person would hit: a tap target under 44x44 on a phone or tablet frame (any control an arrow starts on), text below WCAG contrast (4.5:1, 3:1 when large), and arrows anchored to an element the frame no longer has. Contrast and sizes come from render_frames; frames it has not measured are listed as unmeasured.',
+    { ...where },
+    [],
+    (store, a) => {
+      const name = store.name(a.project);
+      const page = store.page(name, pageId(store, name, a.page));
+      const items = page.items ?? [];
+      const byId = new Map(items.map((i) => [i.id, i]));
+      const meta = new Map();
+      const measured = (id) => {
+        if (!meta.has(id)) {
+          const cache = store.inside(name, `.cache/anchors/${id}.json`);
+          meta.set(id, existsSync(cache) ? JSON.parse(readFileSync(cache, 'utf8')) : null);
+        }
+        return meta.get(id);
+      };
+      const problems = [];
+      const unmeasured = new Set();
+      const touch = (frame) => ['phone', 'tablet'].includes(frame.device);
+      for (const ref of new Set((page.arrows ?? []).flatMap((r) => [r.from, r.to]).filter((ref) => ref.includes('#')))) {
+        const [id, element] = ref.split('#');
+        const frame = byId.get(id);
+        if (frame?.type !== 'frame') continue;
+        if (!anchorsOf(store, name, frame).includes(element)) {
+          problems.push({ item: id, problem: `an arrow is anchored to ${ref}, but ${frame.src} has no element "${element}" any more` });
+          continue;
+        }
+        if (!touch(frame)) continue;
+        const box = measured(id)?.anchors?.[element];
+        if (!box) unmeasured.add(id);
+        else {
+          const [w, h] = [Math.round(box[2]), Math.round(box[3])]; // a sub-pixel short of 44 is 44
+          if (w < 44 || h < 44) problems.push({ item: id, problem: `${ref} is ${w}x${h}, under 44x44: hard to tap` });
+        }
+      }
+      for (const frame of items.filter((i) => i.type === 'frame')) {
+        const found = measured(frame.id)?.contrast;
+        if (!found) unmeasured.add(frame.id);
+        const said = new Set(); // the same text in the same colours, said once per frame
+        for (const c of found ?? []) {
+          const problem = `"${c.text}" is ${c.ratio}:1 (${c.fg} on ${c.bg}), needs ${c.need}:1`;
+          if (!said.has(problem)) said.add(problem) && problems.push({ item: frame.id, problem });
+        }
+      }
+      return { problems, ...(unmeasured.size ? { unmeasured: [...unmeasured], hint: 'run render_frames to measure them' } : {}) };
     },
   ),
 
@@ -553,19 +692,48 @@ export const commands = {
 
   link: cmd('The URL that opens a page, or focuses one item, in the studio. Hand it to the person reviewing.', { ...where, id: t.str('item id to focus') }, [], (store, a) => {
     const name = store.name(a.project);
-    const base = process.env.FRAMERY_URL ?? 'http://127.0.0.1:4173';
+    const base = process.env.FRAMERY_URL ?? studioUrl(store);
     return `${base}/#/${name}/${pageId(store, name, a.page)}${a.id ? '/' + a.id : ''}`;
   }),
+
+  batch: cmd(
+    'Run several tools as one step: in order, all or nothing (if one call fails, the ones before it are undone and nothing is saved), recorded as one history entry. project and page given here are the default for every call.',
+    { ...where, calls: { type: 'array', items: { type: 'object' }, description: '[{tool, args}], e.g. [{"tool":"update_item","args":{"id":"a","patch":{"title":"Home"}}}]' } },
+    ['calls'],
+    async (store, a) => {
+      if (!Array.isArray(a.calls) || !a.calls.length) fail('calls: a list of {tool, args}');
+      const name = store.name(a.project);
+      const undo = snapshot(store, name);
+      const results = [];
+      for (const [i, call] of a.calls.entries()) {
+        try {
+          if (call?.tool === 'batch' || historyCommands[call?.tool]) fail(`${call.tool} cannot run inside a batch`);
+          const props = commands[call?.tool]?.input.properties ?? {};
+          const args = { ...('project' in props ? { project: name } : {}), ...(a.page && 'page' in props ? { page: a.page } : {}), ...call?.args };
+          results.push(await checked(call?.tool, args).run(store, args));
+        } catch (error) {
+          undo();
+          fail(`call ${i + 1} (${call?.tool}): ${error.message}. Nothing was changed.`);
+        }
+      }
+      return results;
+    },
+  ),
 
   ...componentCommands,
   ...historyCommands,
 };
 
-export async function run(store, name, args = {}) {
+function checked(name, args) {
   const command = commands[name];
   if (!command) fail(`unknown command ${name}; have: ${Object.keys(commands).join(', ')}`);
   for (const key of command.input.required) if (args[key] === undefined) fail(`${name}: "${key}" is required`);
   for (const key of Object.keys(args)) if (!(key in command.input.properties)) fail(`${name}: unknown argument "${key}"`);
+  return command;
+}
+
+export async function run(store, name, args = {}) {
+  const command = checked(name, args);
   // Every command is followed by a look at what it changed, so the undo trail covers the tools without
   // each tool knowing about it. The history commands keep their own books.
   const tracked = historyCommands[name] ? null : projectOf(store, args);

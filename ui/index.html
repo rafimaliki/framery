@@ -31,11 +31,12 @@
       <div class="layers__head">
         <span class="eyebrow">Layers</span>
         <button class="text-btn layers__all" id="layers-all" type="button" hidden>Collapse all</button>
-        <input class="search" id="search" type="search" placeholder="Filter" aria-label="Filter layers" autocomplete="off">
+        <input class="search" id="search" title="Filter this page. / or Ctrl+K finds on every page." type="search" placeholder="Filter" aria-label="Filter layers" autocomplete="off">
       </div>
       <ul class="layers__list" id="layers"></ul>
     </div>
     <div class="side__foot">
+      <span class="side__version" id="version"></span>
       <button class="icon-btn" id="history-btn" type="button" aria-label="History" aria-haspopup="true" aria-expanded="false" title="History"></button>
       <div class="settings history" id="history" hidden role="dialog" aria-label="History"></div>
       <button class="icon-btn" id="settings-btn" type="button" aria-label="Settings" aria-haspopup="true" aria-expanded="false" title="Settings"></button>
@@ -49,6 +50,7 @@
       <svg class="arrows" id="arrows"></svg>
     </div>
     <div class="zoombar" id="zoombar">
+      <button class="warn-btn" id="arrow-warn" type="button" hidden></button>
       <button class="icon-btn" id="arrows-mode" type="button" aria-label="Which arrows to show"></button>
       <button class="icon-btn" id="zoom-out" type="button" aria-label="Zoom out"></button>
       <button class="zoom-pct" id="zoom-pct" type="button" aria-label="Zoom to 100 percent">100%</button>

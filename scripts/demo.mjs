@@ -5,7 +5,7 @@
 //   app            phone, tablet and desktop screens in three groups
 //   design-system  document frames: colors, type, controls
 //   plan           a table whose rows link to the screens
-//   stress         40 frames in one group: export caps, layer-list animations, zoomed-out captions
+//   stress         40 frames in five stacked row groups: export caps, layer-list animations, zoomed-out captions
 
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -34,7 +34,7 @@ file(
   --ink-soft: #6b6d76;
   --line: #e4e1d9;
   --accent: #3b5bdb;
-  --positive: #2b8a3e;
+  --positive: #237a33;
   --negative: #c92a2a;
   --radius: 14px;
   --font: system-ui, -apple-system, "Segoe UI", sans-serif;
@@ -48,7 +48,7 @@ body { margin: 0; font: 15px/1.45 var(--font); color: var(--ink); background: va
 .screen { min-height: 100vh; display: flex; flex-direction: column; padding: 56px 20px 24px; gap: 16px; }
 .screen--wide { padding: 32px 40px; }
 .bar { display: flex; align-items: center; justify-content: space-between; }
-.back { color: var(--accent); font-weight: 600; }
+.back { color: var(--accent); font-weight: 600; padding: 11px 0; margin: -11px 0; } /* a 44px tap target, laid out as text */
 h1 { margin: 0; font-size: 28px; letter-spacing: -0.02em; }
 h2 { margin: 0; font-size: 17px; }
 .muted { color: var(--ink-soft); }
@@ -110,9 +110,6 @@ await frames('onboarding', [
 ]);
 await call('add_item', { page: 'onboarding', type: 'node', shape: 'terminal', id: 'open', title: 'App opened' });
 await call('add_item', { page: 'onboarding', type: 'node', shape: 'diamond', id: 'code-ok', title: 'Code right?' });
-await call('arrange', { page: 'onboarding', ids: ['open', 'welcome', 'email', 'code', 'code-ok', 'bank'], x: 0, y: 0, gap: 140, align: 'center' });
-const at = (page, id) => call('get_page', { page }).then((p) => p.items.find((i) => i.id === id).x);
-await call('arrange', { page: 'onboarding', ids: ['code-error'], x: await at('onboarding', 'code'), y: 1000 }); // a state sits under the screen it is a state of
 for (const [from, to, label, tone] of [
   ['open', 'welcome', null, 'neutral'],
   ['welcome#start', 'email', 'tap Get started', 'positive'],
@@ -122,6 +119,7 @@ for (const [from, to, label, tone] of [
   ['code-ok', 'code-error', 'no', 'negative'],
   ['code-error#retry', 'code', 'tap Send a new code', 'neutral'],
 ]) await call('connect', { page: 'onboarding', from, to, ...(label ? { label } : {}), tone });
+await call('layout_flow', { page: 'onboarding', ids: ['open', 'welcome', 'email', 'code', 'code-error', 'code-ok', 'bank'], x: 0, y: 0 }); // from the arrows, as an agent would
 await call('group_items', { page: 'onboarding', id: 'sign-up', ids: ['open', 'welcome', 'email', 'code', 'code-error', 'code-ok', 'bank'], title: 'Sign up', description: 'No passwords: email and a one-time code. A wrong code never clears what was typed.' });
 
 // ---- app ----------------------------------------------------------------------------------------
@@ -141,14 +139,13 @@ await frames('app', [
   ['budgets', 'Budgets', 'tablet', '3.1', 'Tablet layout: two columns of budget cards.'],
   ['dashboard', 'Overview', 'desktop', '4.1', 'Web: the same numbers as home, with room for the full list.'],
 ]);
-await call('arrange', { page: 'app', ids: ['home', 'activity', 'payment'], x: 0, y: 0, gap: 140 });
-await call('arrange', { page: 'app', ids: ['add'], x: await at('app', 'activity'), y: 1000 }); // under Activity, so its arrow crosses no screen
 await call('arrange', { page: 'app', ids: ['budgets', 'dashboard'], x: 0, y: 2200, gap: 200 });
 for (const [from, to, label, tone] of [
   ['home#all', 'activity', 'tap See all', 'neutral'],
   ['activity#row', 'payment', 'tap a payment', 'neutral'],
   ['home#add', 'add', 'tap Add expense', 'positive'],
 ]) await call('connect', { page: 'app', from, to, label, tone });
+await call('layout_flow', { page: 'app', ids: ['home', 'activity', 'payment', 'add'], x: 0, y: 0 });
 await call('group_items', { page: 'app', id: 'spending', ids: ['home', 'activity', 'payment', 'add'], title: 'Spending', description: 'Amounts are always signed and coloured by direction, never by colour alone.' });
 await call('group_items', { page: 'app', id: 'tablet', ids: ['budgets'], title: 'Tablet' });
 await call('group_items', { page: 'app', id: 'web', ids: ['dashboard'], title: 'Web' });
@@ -195,19 +192,23 @@ await call('add_page', { id: 'stress', title: 'Stress (40 frames)', description:
 const many = Array.from({ length: 40 }, (_, n) => `s${String(n + 1).padStart(2, '0')}`);
 for (const [n, id] of many.entries()) {
   screen(`screens/stress/${id}.html`, `<h1>Screen ${n + 1}</h1><div class="card"><div class="balance">${n + 1}</div><div class="meter"><i style="width:${(n * 37) % 100}%"></i></div></div>${rows([['Row a', `$${n}.00`], ['Row b', `$${n * 2}.50`, 'out']])}`);
-  await call('add_item', { page: 'stress', type: 'frame', id, title: `Screen ${n + 1}`, src: `screens/stress/${id}.html`, device: 'phone', x: (n % 8) * 490, y: Math.floor(n / 8) * 960 });
+  await call('add_item', { page: 'stress', type: 'frame', id, title: `Screen ${n + 1}`, src: `screens/stress/${id}.html`, device: 'phone', x: (n % 8) * 490, y: Math.floor(n / 8) * 1100 });
 }
-await call('group_items', { page: 'stress', id: 'wall', ids: many, title: 'Wall of screens' });
+// rows stacked close: zoomed far out their captions have no room above them and must wait
+const rowGroups = [];
+for (let r = 0; r < 5; r++) rowGroups.push((await call('group_items', { page: 'stress', id: `row-${r + 1}`, ids: many.slice(r * 8, r * 8 + 8), title: `Row ${r + 1}` })).group.id);
+await call('group_items', { page: 'stress', id: 'wall', ids: rowGroups, title: 'Wall of screens' });
 
-// The seed must draw clean: measure the anchors (needs Chrome or Edge), then no arrow may cross another or cut through an item.
+// The seed must be clean: measure the frames (needs Chrome or Edge), then no arrow may cross another or cut
+// through an item, and no screen may have a small tap target or hard-to-read text.
 try {
   await call('render_frames', {});
 } catch (error) {
-  console.log(`demo: arrows not checked against measured anchors (${error.message})`);
+  console.log(`demo: not checked against measured frames (${error.message})`);
 }
 for (const { id } of store.project(project).pages) {
-  const { problems } = await call('check_arrows', { page: id });
-  if (problems.length) throw new Error(`demo page ${id} draws badly:\n${problems.map((p) => `  ${p.problem}`).join('\n')}`);
+  const problems = [...(await call('check_arrows', { page: id })).problems, ...(await call('check_design', { page: id })).problems];
+  if (problems.length) throw new Error(`demo page ${id} has problems:\n${problems.map((p) => `  ${p.problem}`).join('\n')}`);
 }
 await run(store, 'checkpoint', { project, label: 'demo seeded' });
 console.log(`demo: ${base}`);

@@ -3,7 +3,7 @@
 // 127.0.0.1, refuses a Host it does not own, and takes writes only as same-origin JSON.
 
 import { createServer } from 'node:http';
-import { createReadStream, existsSync, statSync, watch } from 'node:fs';
+import { createReadStream, existsSync, mkdirSync, statSync, watch, writeFileSync } from 'node:fs';
 import { createGzip } from 'node:zlib';
 import { extname, join, normalize, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -11,6 +11,7 @@ import { FramError, Store } from './store.mjs';
 import { commands, run } from './commands.mjs';
 import { sync } from './library.mjs';
 import { record } from './history.mjs';
+import { version } from './doctor.mjs';
 
 const UI = resolve(fileURLToPath(new URL('../ui', import.meta.url)));
 const TYPES = {
@@ -29,7 +30,9 @@ const TYPES = {
 };
 const SQUEEZE = new Set(['.html', '.css', '.js', '.mjs', '.json', '.svg']);
 
-export function serve({ root, port = 4173, autoRender = true, quiet = false }) {
+// strict: the port was asked for by name, so a busy one is an error. Otherwise the next free one is taken.
+export function serve({ root, port = 4173, strict = false, autoRender = true, quiet = false }) {
+  const wanted = port;
   const watchers = [];
   const store = new Store(root);
   const streams = new Set();
@@ -189,6 +192,8 @@ export function serve({ root, port = 4173, autoRender = true, quiet = false }) {
       return;
     }
 
+    if (path === '/api/version') return json(response, 200, { version: version() });
+
     if (path === '/api/projects') {
       const list = store.projects().map((name) => ({ name, title: store.project(name).title ?? name }));
       return json(response, 200, list);
@@ -247,6 +252,7 @@ export function serve({ root, port = 4173, autoRender = true, quiet = false }) {
           'content-type': TYPES[extname(target)] ?? 'application/octet-stream',
           'content-disposition': `attachment; filename="${out.file.split('/').pop()}"`,
           'x-framery-size': `${out.width}x${out.height}`,
+          'x-framery-scale': String(out.scale), // lower than asked when the item was too large for it
           'cache-control': 'no-store',
         });
         return createReadStream(target).pipe(response);
@@ -273,8 +279,17 @@ export function serve({ root, port = 4173, autoRender = true, quiet = false }) {
     });
   });
   server.on('close', () => watchers.forEach((w) => w.close()));
-  server.listen(port, '127.0.0.1', () => {
-    if (!quiet) console.log(`framery  http://127.0.0.1:${port}/   data: ${store.root}`);
+  server.on('error', (error) => {
+    if (error.code !== 'EADDRINUSE' || strict || port - wanted >= 20) throw error;
+    port += 1;
+    server.listen(port, '127.0.0.1');
+  });
+  server.listen(port, '127.0.0.1');
+  server.on('listening', () => {
+    // where the studio is, for the link tool in the agent's process (src/commands.mjs)
+    mkdirSync(join(store.root, '.cache'), { recursive: true });
+    writeFileSync(join(store.root, '.cache', 'studio.json'), JSON.stringify({ url: `http://127.0.0.1:${port}`, pid: process.pid }));
+    if (!quiet) console.log(`framery  http://127.0.0.1:${port}/   data: ${store.root}${port !== wanted ? `   (${wanted} was busy)` : ''}`);
     if (autoRender) renderNow().then((r) => r && !r.busy && r.rendered && console.log(`previews: ${r.rendered} rendered, ${r.skipped} fresh`), (e) => console.log(`previews off: ${e.message}`));
   });
   return server;
