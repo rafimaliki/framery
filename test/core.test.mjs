@@ -3,7 +3,7 @@
 
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
-import { existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
@@ -79,6 +79,26 @@ test('arrows: crossings and cuts through items are reported; a shared lane is sp
   assert.deepEqual(yes.p0, [200, 60]);
   assert.deepEqual(no.p0, [100, 120], 'the second branch leaves from the bottom point');
   assert.deepEqual(checkArrows(stacked, [{ id: 'up', from: 'f#retry', to: 'top' }], (id, el) => (id === 'f' && el === 'retry' ? [16, 780, 358, 48] : null)), []);
+});
+
+test('rename_item carries arrows, children, table links and the preview to the new id', async () => {
+  const { call, store, project } = scratch();
+  await call('add_item', { type: 'frame', id: 'a', src: 'a.html', device: 'phone', x: 0, y: 0 });
+  await call('add_item', { type: 'frame', id: 'b', src: 'b.html', device: 'phone', x: 600, y: 0 });
+  await call('connect', { from: 'a#go-a', to: 'b' });
+  await call('group_items', { id: 'flow', ids: ['a', 'b'], title: 'Flow' });
+  await run(store, 'add_page', { project, id: 'plan', title: 'Plan' });
+  await call('add_item', { page: 'plan', type: 'table', id: 't', title: 'T', columns: [{ id: 'c', title: 'C' }], rows: [{ id: 'r', title: 'R', link: 'flows/a', cells: {} }] });
+  mkdirSync(join(store.dir(project), '.cache', 'frames'), { recursive: true });
+  writeFileSync(join(store.dir(project), '.cache', 'frames', 'a.webp'), 'x');
+  await assert.rejects(call('rename_item', { id: 'a', to: 'b' }), /taken/);
+  const out = await call('rename_item', { id: 'a', to: 'start' });
+  assert.deepEqual([out.arrows, out.links], [1, 1]);
+  const page = store.page(project, 'flows');
+  assert.equal(page.arrows[0].from, 'start#go-a', 'the anchor stays');
+  assert.equal(page.items.find((i) => i.id === 'start').parent, 'flow');
+  assert.equal(store.page(project, 'plan').items[0].rows[0].link, 'flows/start');
+  assert.ok(existsSync(join(store.dir(project), '.cache', 'frames', 'start.webp')));
 });
 
 test('move_page reorders the sidebar and refuses pages that do not exist', async () => {

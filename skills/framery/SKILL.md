@@ -48,6 +48,7 @@ All writes go through the tools. They validate, keep ids stable, and the open st
 | move to another page | `move_to_page {page, ids, to, dx?, dy?}`: a group takes its members; arrows between moved items go along, an arrow that would cross pages is refused |
 | arrows draw clean | `check_arrows {page}`: crossings, overlaps, arrows through items, labels covering items or each other; must be empty |
 | change anything | `update_item {id, patch}`, `update_arrow {id, patch}`, `remove_item`, `remove_arrow` |
+| a better id | `rename_item {id, to}`: arrows, children, table links on any page and the cached preview follow |
 | a new page | `add_page {id, title}`; reorder with `move_page {id, before?}` (omit `before` to put it last) |
 | tokens | `set_token {name, value}` |
 | a table | `add_item {type:"table", columns:[{id,title,note?}], rows:[{id,title,link?:"page/item",cells:{columnId:text}}], marks:{"built":"positive"}}` |
@@ -75,7 +76,8 @@ Conventions that keep the board readable:
 - **A group is one flow.** Frames inside it read left to right; its description holds the flow's rules.
 - **Descriptions are short and specific.** What the frame is, then the rule it must keep. No restating
   what the picture shows.
-- **Ids are stable and lowercase.** Do not rename an id other work refers to.
+- **Ids are stable and lowercase.** Never change an id with `update_item` or by hand: `rename_item {id, to}` is the
+  only safe way, and it carries arrows, children, table links and previews along.
 - **Frames are html files** in the project folder, built from the project's own css and tokens. A frame
   measures itself: `autoHeight: true` frames get their height from the page when previews render.
 
