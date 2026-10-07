@@ -18,6 +18,7 @@ import { gapsOf } from '../ui/canvas/renderers/group.js';
 import { flowStart } from '../ui/panels/player.js';
 import { labelAt } from '../ui/canvas/routes.js';
 import { layoutFlow } from '../src/layout.mjs';
+import { checkFlow } from '../src/flow.mjs';
 import { init } from '../src/init.mjs';
 import { Store } from '../src/store.mjs';
 import { along } from '../ui/panels/shortcuts.js';
@@ -214,6 +215,37 @@ test('a group plays when exactly one item inside it starts the flow', () => {
   assert.equal(flowStart(page, 'wall'), null, 'no arrows: not a flow');
   page.arrows.push({ id: '3', from: 'x', to: 'c' }, { id: '4', from: 'y', to: 'c' });
   assert.equal(flowStart(page, 'wall'), null, 'two starts: not one flow');
+});
+
+test('check_flow: one start, all reachable, ends marked, diamonds answered, screens described', () => {
+  const f = (id, more = {}) => ({ id, type: 'frame', parent: 'flow', x: 0, y: 0, w: 10, h: 10, description: 'd', ...more });
+  const page = {
+    items: [{ id: 'flow', type: 'group' }, f('a'), f('b', { end: true }), f('c', { description: '' }), { id: 'q', type: 'node', shape: 'diamond', parent: 'flow' }, f('lost'), { id: 'gallery', type: 'group' }, f('spec', { parent: 'gallery', description: '' })],
+    arrows: [
+      { id: 'aq', from: 'a#go', to: 'q' },
+      { id: 'qb', from: 'q', to: 'b', label: 'yes' },
+      { id: 'qc', from: 'q', to: 'c' },
+      { id: 'lost-b', from: 'lost', to: 'b' },
+    ],
+  };
+  const found = checkFlow(page).map((p) => p.problem);
+  assert.ok(found.some((p) => /group flow has 2 starts \(a, lost\)/.test(p)), found.join('; '));
+  assert.ok(found.some((p) => /answer qc from diamond q has no label/.test(p)));
+  assert.ok(found.some((p) => /c is a dead end/.test(p)), 'c has an arrow in and none out');
+  assert.ok(!found.some((p) => /b is a dead end/.test(p)), 'b is marked end');
+  assert.ok(found.some((p) => /c has no description/.test(p)));
+  assert.ok(!found.some((p) => /spec/.test(p)), 'a group without arrows is not a flow');
+  page.arrows.pop();
+  const one = checkFlow(page).map((p) => p.problem);
+  assert.ok(one.some((p) => /nothing leads to lost from the start of group flow \(a\)/.test(p)), one.join('; '));
+});
+
+test('two screens connected both ways draw a loop, not two lines on one side', () => {
+  const screen = (id, y) => ({ id, type: 'frame', x: 0, y, w: 390, h: 844 });
+  const boxes = { 'top#down': [16, 400, 358, 48], 'low#up': [16, 780, 358, 48] }; // mid-screen down, bottom-of-screen back up
+  const [down, up] = resolve([{ id: 'd', from: 'top#down', to: 'low' }, { id: 'u', from: 'low#up', to: 'top' }], [screen('top', 0), screen('low', 1100)], (id, el) => boxes[`${id}#${el}`] ?? null);
+  assert.equal(down.n0[0], -1, 'down leaves left');
+  assert.equal(up.n0[0], 1, 'back up leaves right');
 });
 
 test('move_to_page carries a group, its members and their arrows; refuses crossing arrows and clashing ids', async () => {

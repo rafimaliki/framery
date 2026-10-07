@@ -47,13 +47,17 @@ const roomOf = (r, item) => ({ top: r.y - item.y, bottom: item.y + item.h - r.y 
 // from a side the control sits close to instead, the one that faces the target best.
 const NEAR_EDGE = 48;
 
-function exitSide(end, item, side, toward) {
+// `rather`: a side to take when it faces the target as well as the best one does (see the pairs in resolve).
+function exitSide(end, item, side, toward, rather) {
   if (!end.element) return side;
   const room = roomOf(end.rect, item);
   if (room[side] <= NEAR_EDGE) return side;
   const near = Object.keys(room).filter((s) => room[s] <= NEAR_EDGE);
-  return near.length ? best(near, end.rect, toward) : side;
+  if (!near.length) return side;
+  const top = best(near, end.rect, toward);
+  return near.includes(rather) && facing(end.rect, toward, top) - facing(end.rect, toward, rather) < 0.01 ? rather : top;
 }
+const OPPOSITE = { left: 'right', right: 'left', top: 'bottom', bottom: 'top' };
 
 // Is something standing in the way of a sideways arrow: a frame between the two ends, on the same band?
 function blockedBetween(items, from, to) {
@@ -71,6 +75,10 @@ function blockedBetween(items, from, to) {
 export function resolve(arrows, items, boxOf) {
   const byId = new Map(items.map((item) => [item.id, item]));
   const ends = [];
+  // two items connected both ways: the second arrow leaves from the other side when it can, so the pair
+  // draws a loop instead of two lines down one side
+  const pairSide = new Map();
+  const pair = (a, b) => [a, b].sort().join('|');
   for (const arrow of arrows) {
     const from = endRect(arrow.from, byId, boxOf);
     const to = endRect(arrow.to, byId, boxOf);
@@ -86,9 +94,10 @@ export function resolve(arrows, items, boxOf) {
     }
     ends.push({
       arrow,
-      from: { ...from, side: arrow.fromSide ?? exitSide(from, byId.get(from.id), auto0, centreOf(to.rect)), other: centreOf(to.rect) },
+      from: { ...from, side: arrow.fromSide ?? exitSide(from, byId.get(from.id), auto0, centreOf(to.rect), OPPOSITE[pairSide.get(pair(from.id, to.id))]), other: centreOf(to.rect) },
       to: { ...to, side: arrow.toSide ?? exitSide(to, byId.get(to.id), auto1, centreOf(from.rect)), other: centreOf(from.rect) },
     });
+    if (!pairSide.has(pair(from.id, to.id))) pairSide.set(pair(from.id, to.id), ends.at(-1).from.side);
   }
 
   // A diamond touches its box only at the middle of each side: an end sits on that point, never spread
