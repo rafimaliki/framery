@@ -399,6 +399,20 @@ test('check_design: small tap targets, low contrast text, and anchors that are g
   assert.match((await call('check_design', {})).problems[0].problem, /no element "go" any more/);
 });
 
+test('screen states: names checked, each state rendered, a control only one state has still anchors arrows', async (t) => {
+  const { call, store, project } = scratch();
+  await call('add_item', { type: 'frame', id: 'a', src: 'a.html', device: 'phone' });
+  await assert.rejects(call('update_item', { id: 'a', patch: { states: ['default'] } }), /"default" is the state with no name/);
+  await assert.rejects(call('update_item', { id: 'a', patch: { states: ['error', 'error'] } }), /listed twice/);
+  await call('update_item', { id: 'a', patch: { states: ['error'] } });
+  if (!findBrowser()) return t.skip('no Chrome or Edge here');
+  writeFileSync(join(store.dir(project), 'a.html'), '<style>#retry{display:none}:root[data-state="error"] #retry{display:block;width:120px;height:48px}</style><body><button id="retry">Retry</button></body>');
+  await call('render_frames', { force: true });
+  assert.ok(existsSync(join(store.dir(project), '.cache', 'frames', 'a~error.webp')), 'the error state has its own picture');
+  const box = JSON.parse(readFileSync(join(store.dir(project), '.cache', 'anchors', 'a.json'), 'utf8')).anchors.retry;
+  assert.deepEqual(box?.slice(2), [120, 48], 'measured in the state that shows it');
+});
+
 test('paths cannot leave the project', async () => {
   const { call } = scratch();
   await assert.rejects(call('add_item', { type: 'frame', src: '../../etc/passwd' }), /leaves the project|no file/);

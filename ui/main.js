@@ -58,6 +58,8 @@ const inspector = createInspector($('inspector'), {
   onOpen: (page, id) => navigate({ project: state.project, page, id }),
   onPick: (sel) => session.select(sel),
   onPlay: (id) => player.play(id),
+  stateOf: (id) => canvas.stateOf(id),
+  onState: (id, state) => canvas.setState(id, state),
   onClose: () => {
     detailClosed = true; // only the panel goes; what is selected stays focused
     inspector.hide();

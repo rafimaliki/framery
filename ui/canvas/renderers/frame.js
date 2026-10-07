@@ -48,6 +48,10 @@ export default {
     }
   },
 
+  restate(el) {
+    contents.get(el)?.restate();
+  },
+
   refreshImages(els) {
     for (const el of els) contents.get(el)?.refreshImage();
   },

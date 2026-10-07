@@ -82,6 +82,12 @@ export function createWorld(root, renderers, ctx) {
       for (const [key, { el }] of mounted) el.classList.toggle('sel', key === id);
     },
 
+    // A frame shows another of its states.
+    restate(id) {
+      const entry = mounted.get(id);
+      if (entry) renderers[entry.item.type].restate?.(entry.el);
+    },
+
     refreshImages() {
       for (const type of new Set([...mounted.values()].map((e) => e.item.type))) {
         renderers[type].refreshImages?.([...mounted.values()].filter((e) => e.item.type === type).map((e) => e.el));

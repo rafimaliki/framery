@@ -19,6 +19,6 @@ export const api = {
   },
   exportUrl: (params) => `/api/export?${new URLSearchParams(params)}`,
   file: (project, path, rev = 0) => `/p/${project}/${path}${rev ? `?v=${rev}` : ''}`,
-  preview: (project, id, rev) => `/p/${project}/.cache/frames/${id}.webp${rev ? `?v=${rev}` : ''}`,
+  preview: (project, id, rev, state) => `/p/${project}/.cache/frames/${id}${state ? `~${state}` : ''}.webp${rev ? `?v=${rev}` : ''}`,
   anchors: (project, id, rev) => json(`/p/${project}/.cache/anchors/${id}.json${rev ? `?v=${rev}` : ''}`),
 };

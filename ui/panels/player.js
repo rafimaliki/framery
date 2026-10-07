@@ -6,6 +6,7 @@
 
 import { api } from '../core/api.js';
 import { h, icon } from '../core/dom.js';
+import { segmented } from './segmented.js';
 
 const end = (ref) => ref.split('#')[0];
 const element = (ref) => ref.split('#')[1] ?? null;
@@ -32,7 +33,8 @@ export function createPlayer({ project, page, pageId, rev, onExit = () => {}, on
   const tab = h('a', { class: 'icon-btn', target: '_blank', rel: 'noopener', 'aria-label': 'Play in a new tab', title: 'Play in a new tab', html: icon.external });
   const stage = h('div', { class: 'player__stage' });
   const ways = h('div', { class: 'player__ways' });
-  const dialog = h('dialog', { class: `player${own ? ' player--tab' : ''}`, 'aria-label': 'Play the flow' }, h('header', { class: 'player__head' }, back, title, ...(own ? [] : [tab, close])), stage, ways);
+  const looks = h('div', { class: 'player__states' }); // the states a screen draws, to switch between
+  const dialog = h('dialog', { class: `player${own ? ' player--tab' : ''}`, 'aria-label': 'Play the flow' }, h('header', { class: 'player__head' }, back, title, ...(own ? [] : [tab, close])), stage, looks, ways);
   if (own) dialog.addEventListener('cancel', (event) => event.preventDefault()); // Esc would leave an empty tab
   document.body.append(dialog);
   let trail = []; // ids played, the last one showing
@@ -72,9 +74,25 @@ export function createPlayer({ project, page, pageId, rev, onExit = () => {}, on
     ways.replaceChildren(...leaving.filter((a) => !element(a.from) && it?.type === 'frame').map(way));
     if (!it || it.type !== 'frame') {
       // a question (a diamond), or anything that is not a screen: its ways out are the choices
+      looks.replaceChildren();
       stage.replaceChildren(h('div', { class: 'player__ask' }, h('p', null, it?.title ?? id), ...(leaving.length ? leaving.map(way) : [h('p', { class: 'player__end' }, 'The flow ends here.')])));
       fit = () => {};
       return;
+    }
+    // a screen that draws states: chips to switch the live page between them
+    looks.replaceChildren();
+    if (it.states?.length) {
+      const pick = segmented({
+        label: 'State',
+        options: ['default', ...it.states].map((s) => ({ value: s, label: s })),
+        value: 'default',
+        onChange: (s) => {
+          const root = frame.contentDocument?.documentElement;
+          if (root) s === 'default' ? delete root.dataset.state : (root.dataset.state = s);
+          pick.show(s);
+        },
+      });
+      looks.append(pick.el);
     }
     const hot = new Map(leaving.filter((a) => element(a.from)).map((a) => [element(a.from), end(a.to)]));
     const frame = h('iframe', { class: 'player__frame', title: it.title ?? it.id, src: api.file(project(), it.src, rev()) });

@@ -81,6 +81,11 @@ Conventions that keep the board readable:
   what the picture shows.
 - **Ids are stable and lowercase.** Never change an id with `update_item` or by hand: `rename_item {id, to}` is the
   only safe way, and it carries arrows, children, table links and previews along.
+- **One screen, several states: one frame.** Empty, loading and error versions of a screen are not separate
+  frames: give the frame `states: ["empty", "error"]` and draw each in the same page under
+  `:root[data-state="empty"] …` (the default state has no `data-state`). `render_frames` pictures each state,
+  the studio and the player switch between them, and a control only one state shows still anchors arrows.
+  Use separate frames only for a state that is reached by its own arrow and leads somewhere of its own.
 - **Frames are html files** in the project folder, built from the project's own css and tokens. A frame
   measures itself: `autoHeight: true` frames get their height from the page when previews render.
 

@@ -5,12 +5,13 @@
 import { h, icon } from '../core/dom.js';
 import { exportControls } from './exporter.js';
 import { flowStart } from './player.js';
+import { segmented } from './segmented.js';
 
 const nameOf = (item) => [item.step, item.title ?? item.id].filter(Boolean).join(' ');
 const refId = (ref) => ref.split('#')[0];
 const EXPORTABLE = new Set(['frame', 'group', 'node', 'table']);
 
-export function createInspector(el, { page, pageId, project, components, onPick, onOpen, onClose, onPlay }) {
+export function createInspector(el, { page, pageId, project, components, onPick, onOpen, onClose, onPlay, stateOf, onState }) {
   const itemOf = (ref) => page().items.find((i) => i.id === refId(ref));
   const pick = (item) => () => item && onPick({ kind: 'item', id: item.id });
 
@@ -50,6 +51,20 @@ export function createInspector(el, { page, pageId, project, components, onPick,
 
   const exporter = (item) => (EXPORTABLE.has(item.type) ? exportControls({ project: project(), page: pageId(), id: item.id, what: item.type === 'group' ? 'flow' : item.type === 'frame' ? 'screen' : item.type }) : null);
 
+  // A frame that draws several states: which one the canvas shows.
+  function stateControl(item) {
+    const control = segmented({
+      label: 'State',
+      options: ['default', ...item.states].map((s) => ({ value: s, label: s })),
+      value: stateOf(item.id) ?? 'default',
+      onChange: (s) => {
+        onState(item.id, s === 'default' ? null : s);
+        control.show(s);
+      },
+    });
+    return h('div', { class: 'inspector__states' }, h('span', { class: 'eyebrow' }, 'State'), control.el);
+  }
+
   function itemBody(item) {
     const { arrows, items } = page();
     const out = arrows.filter((a) => refId(a.from) === item.id);
@@ -60,6 +75,7 @@ export function createInspector(el, { page, pageId, project, components, onPick,
     const size = item.type === 'group' ? `${inside.length} inside` : item.type === 'table' ? `${item.rows.length} rows × ${item.columns.length} columns` : `${item.w}×${item.h}`;
     return [
       chips(kind, size, { text: item.id }),
+      item.type === 'frame' && item.states?.length ? stateControl(item) : null,
       text(item.description, 'No description yet.'),
       // one way to look at a screen: the player (which also opens it in a new tab); a flow plays from its start
       item.type === 'frame'
