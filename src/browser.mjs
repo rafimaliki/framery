@@ -75,9 +75,20 @@ export function launch(exe) {
     });
     child.on('exit', () => reject(new Error('browser exited early')));
   });
+  // The profile goes once Chrome has exited. On Windows a helper process can still hold a file in it a
+  // moment longer: then it stays in the temp folder rather than throw from nowhere and take down the
+  // studio (or whatever test is running).
+  const clean = () => {
+    try {
+      rmSync(profile, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
+    } catch {
+      // left for the OS temp cleanup
+    }
+  };
   const stop = () => {
+    if (child.exitCode !== null || child.signalCode !== null) return clean();
+    child.once('exit', clean);
     child.kill();
-    setTimeout(() => rmSync(profile, { recursive: true, force: true, maxRetries: 5 }), 500).unref();
   };
   return { url, stop };
 }

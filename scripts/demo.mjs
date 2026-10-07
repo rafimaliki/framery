@@ -110,9 +110,6 @@ await frames('onboarding', [
 ]);
 await call('add_item', { page: 'onboarding', type: 'node', shape: 'terminal', id: 'open', title: 'App opened' });
 await call('add_item', { page: 'onboarding', type: 'node', shape: 'diamond', id: 'code-ok', title: 'Code right?' });
-await call('arrange', { page: 'onboarding', ids: ['open', 'welcome', 'email', 'code', 'code-ok', 'bank'], x: 0, y: 0, gap: 140, align: 'center' });
-const at = (page, id) => call('get_page', { page }).then((p) => p.items.find((i) => i.id === id).x);
-await call('arrange', { page: 'onboarding', ids: ['code-error'], x: await at('onboarding', 'code'), y: 1000 }); // a state sits under the screen it is a state of
 for (const [from, to, label, tone] of [
   ['open', 'welcome', null, 'neutral'],
   ['welcome#start', 'email', 'tap Get started', 'positive'],
@@ -122,6 +119,7 @@ for (const [from, to, label, tone] of [
   ['code-ok', 'code-error', 'no', 'negative'],
   ['code-error#retry', 'code', 'tap Send a new code', 'neutral'],
 ]) await call('connect', { page: 'onboarding', from, to, ...(label ? { label } : {}), tone });
+await call('layout_flow', { page: 'onboarding', ids: ['open', 'welcome', 'email', 'code', 'code-error', 'code-ok', 'bank'], x: 0, y: 0 }); // from the arrows, as an agent would
 await call('group_items', { page: 'onboarding', id: 'sign-up', ids: ['open', 'welcome', 'email', 'code', 'code-error', 'code-ok', 'bank'], title: 'Sign up', description: 'No passwords: email and a one-time code. A wrong code never clears what was typed.' });
 
 // ---- app ----------------------------------------------------------------------------------------
@@ -141,14 +139,13 @@ await frames('app', [
   ['budgets', 'Budgets', 'tablet', '3.1', 'Tablet layout: two columns of budget cards.'],
   ['dashboard', 'Overview', 'desktop', '4.1', 'Web: the same numbers as home, with room for the full list.'],
 ]);
-await call('arrange', { page: 'app', ids: ['home', 'activity', 'payment'], x: 0, y: 0, gap: 140 });
-await call('arrange', { page: 'app', ids: ['add'], x: await at('app', 'activity'), y: 1000 }); // under Activity, so its arrow crosses no screen
 await call('arrange', { page: 'app', ids: ['budgets', 'dashboard'], x: 0, y: 2200, gap: 200 });
 for (const [from, to, label, tone] of [
   ['home#all', 'activity', 'tap See all', 'neutral'],
   ['activity#row', 'payment', 'tap a payment', 'neutral'],
   ['home#add', 'add', 'tap Add expense', 'positive'],
 ]) await call('connect', { page: 'app', from, to, label, tone });
+await call('layout_flow', { page: 'app', ids: ['home', 'activity', 'payment', 'add'], x: 0, y: 0 });
 await call('group_items', { page: 'app', id: 'spending', ids: ['home', 'activity', 'payment', 'add'], title: 'Spending', description: 'Amounts are always signed and coloured by direction, never by colour alone.' });
 await call('group_items', { page: 'app', id: 'tablet', ids: ['budgets'], title: 'Tablet' });
 await call('group_items', { page: 'app', id: 'web', ids: ['dashboard'], title: 'Web' });

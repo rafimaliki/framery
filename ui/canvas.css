@@ -86,6 +86,8 @@
 .ar.negative { --c: var(--neg); }
 .ar .ln { fill: none; stroke: var(--c); stroke-width: 1.5px; stroke-linecap: round; opacity: 0.88; transition: stroke-width var(--dur-fast) var(--ease), opacity var(--dur-fast) var(--ease); }
 .ar .hd { fill: var(--c); stroke: none; }
+/* check.js says it draws badly: a soft glow under the line, so the line's own colour keeps its meaning */
+.ar.warn .hit { stroke: color-mix(in srgb, var(--accent) 30%, transparent); stroke-linecap: round; stroke-linejoin: round; }
 .ar .dot { fill: var(--c); stroke: var(--bg); stroke-width: 1.5px; transition: transform var(--dur-fast) var(--spring); transform-box: fill-box; transform-origin: center; }
 .ar:hover .dot, .ar.sel .dot { transform: scale(1.25); }
 .ar .hit { fill: none; stroke: transparent; stroke-width: 14px; pointer-events: stroke; cursor: pointer; }

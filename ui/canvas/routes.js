@@ -40,8 +40,8 @@ function curved(p0, n0, p1, n1, head) {
 function elbow(p0, n0, p1, n1, head, via = {}) {
   // The turn distance shrinks with the arrow, so a zoomed-out arrow keeps its shape instead of looping.
   const STUB = Math.max(4, Math.min(MAX_STUB, Math.hypot(p1[0] - p0[0], p1[1] - p0[1]) * 0.25));
-  const c0 = via.clear0 ?? 0;
-  const c1 = via.clear1 ?? 0;
+  const c0 = (via.clear0 ?? 0) + (via.cap0 ?? 0);
+  const c1 = (via.clear1 ?? 0) + (via.cap1 ?? 0);
   const S0 = STUB + c0;
   const S1 = STUB + c1;
   const end = [p1[0] + n1[0] * head, p1[1] + n1[1] * head];
@@ -118,21 +118,21 @@ function middle(points) {
   return points[0];
 }
 
+// The caption above a frame, group or table (renderers/shared.js), in screen px: a label must not cover it.
+export const CAPTION_H = 24;
+export const captioned = (items) => items.filter((i) => ['frame', 'group', 'table'].includes(i.type) && (i.title || i.step));
+
 // A label's pill, in screen px: it keeps this size at every zoom.
 export const PILL_H = 20;
 export const pillWidth = (label) => label.length * 6.2 + 18;
 
-// Where a label sits: the middle of the line, unless its pill would cover one of the rects (items, in
-// the same units as the points); then the middle of the longest run where it covers none.
+// Where a label sits: the middle of the line, unless its pill would cover one of the rects (items and their
+// captions, in the same units as the points); then the clear spot nearest that middle, sliding along each run.
 export function labelAt(points, mid, width, rects) {
   const clear = ([x, y]) => !rects.some((r) => x + width / 2 > r.x && x - width / 2 < r.x + r.w && y + PILL_H / 2 > r.y && y - PILL_H / 2 < r.y + r.h);
   if (clear(mid)) return mid;
-  const runs = points
-    .slice(1)
-    .map((p, i) => [points[i], p])
-    .sort((u, v) => Math.hypot(v[1][0] - v[0][0], v[1][1] - v[0][1]) - Math.hypot(u[1][0] - u[0][0], u[1][1] - u[0][1]))
-    .map(([u, v]) => [(u[0] + v[0]) / 2, (u[1] + v[1]) / 2]);
-  return runs.find(clear) ?? mid;
+  const spots = points.slice(1).flatMap((p, i) => [1, 2, 3, 4, 5, 6, 7, 8, 9].map((k) => [points[i][0] + ((p[0] - points[i][0]) * k) / 10, points[i][1] + ((p[1] - points[i][1]) * k) / 10]));
+  return spots.filter(clear).sort((a, b) => Math.hypot(a[0] - mid[0], a[1] - mid[1]) - Math.hypot(b[0] - mid[0], b[1] - mid[1]))[0] ?? mid;
 }
 
 export function route(style, p0, n0, p1, n1, via) {
