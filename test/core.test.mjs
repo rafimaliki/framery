@@ -336,6 +336,25 @@ test('export: a frame as png, pdf and svg, a group through the studio, and a bad
   await assert.rejects(call('export_item', { id: 'a', format: 'gif' }), /format must be one of/);
 });
 
+test('check_design: small tap targets, low contrast text, and anchors that are gone', async (t) => {
+  if (!findBrowser()) return t.skip('no Chrome or Edge here');
+  const { call, store, project } = scratch();
+  const file = join(store.dir(project), 'a.html');
+  writeFileSync(file, '<body style="margin:0;background:#fff"><p style="color:#999">Faint words</p><p style="color:#222">Clear words</p><button id="go" style="width:20px;height:20px"></button><button id="ok" style="width:120px;height:48px">OK</button></body>');
+  await call('add_item', { type: 'frame', id: 'a', src: 'a.html', device: 'phone', x: 0, y: 0 });
+  await call('add_item', { type: 'frame', id: 'b', src: 'b.html', device: 'phone', x: 600, y: 0 });
+  await call('connect', { from: 'a#go', to: 'b' });
+  await call('connect', { from: 'a#ok', to: 'b' });
+  assert.deepEqual((await call('check_design', {})).unmeasured, ['a', 'b'], 'nothing rendered yet');
+  await call('render_frames', {});
+  const found = (await call('check_design', {})).problems.map((p) => p.problem);
+  assert.equal(found.length, 2, found.join('; '));
+  assert.match(found[0], /a#go is 20x20, under 44x44/);
+  assert.match(found[1], /"Faint words" is 2\.85:1 \(#999999 on #ffffff\), needs 4\.5:1/);
+  writeFileSync(file, readFileSync(file, 'utf8').replace('id="go" ', ''));
+  assert.match((await call('check_design', {})).problems[0].problem, /no element "go" any more/);
+});
+
 test('paths cannot leave the project', async () => {
   const { call } = scratch();
   await assert.rejects(call('add_item', { type: 'frame', src: '../../etc/passwd' }), /leaves the project|no file/);

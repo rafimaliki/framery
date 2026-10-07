@@ -530,6 +530,55 @@ export const commands = {
     },
   ),
 
+  check_design: cmd(
+    'Design problems on a page that a person would hit: a tap target under 44x44 on a phone or tablet frame (any control an arrow starts on), text below WCAG contrast (4.5:1, 3:1 when large), and arrows anchored to an element the frame no longer has. Contrast and sizes come from render_frames; frames it has not measured are listed as unmeasured.',
+    { ...where },
+    [],
+    (store, a) => {
+      const name = store.name(a.project);
+      const page = store.page(name, pageId(store, name, a.page));
+      const items = page.items ?? [];
+      const byId = new Map(items.map((i) => [i.id, i]));
+      const meta = new Map();
+      const measured = (id) => {
+        if (!meta.has(id)) {
+          const cache = store.inside(name, `.cache/anchors/${id}.json`);
+          meta.set(id, existsSync(cache) ? JSON.parse(readFileSync(cache, 'utf8')) : null);
+        }
+        return meta.get(id);
+      };
+      const problems = [];
+      const unmeasured = new Set();
+      const touch = (frame) => ['phone', 'tablet'].includes(frame.device);
+      for (const ref of new Set((page.arrows ?? []).flatMap((r) => [r.from, r.to]).filter((ref) => ref.includes('#')))) {
+        const [id, element] = ref.split('#');
+        const frame = byId.get(id);
+        if (frame?.type !== 'frame') continue;
+        if (!anchorsOf(store, name, frame).includes(element)) {
+          problems.push({ item: id, problem: `an arrow is anchored to ${ref}, but ${frame.src} has no element "${element}" any more` });
+          continue;
+        }
+        if (!touch(frame)) continue;
+        const box = measured(id)?.anchors?.[element];
+        if (!box) unmeasured.add(id);
+        else {
+          const [w, h] = [Math.round(box[2]), Math.round(box[3])]; // a sub-pixel short of 44 is 44
+          if (w < 44 || h < 44) problems.push({ item: id, problem: `${ref} is ${w}x${h}, under 44x44: hard to tap` });
+        }
+      }
+      for (const frame of items.filter((i) => i.type === 'frame')) {
+        const found = measured(frame.id)?.contrast;
+        if (!found) unmeasured.add(frame.id);
+        const said = new Set(); // the same text in the same colours, said once per frame
+        for (const c of found ?? []) {
+          const problem = `"${c.text}" is ${c.ratio}:1 (${c.fg} on ${c.bg}), needs ${c.need}:1`;
+          if (!said.has(problem)) said.add(problem) && problems.push({ item: frame.id, problem });
+        }
+      }
+      return { problems, ...(unmeasured.size ? { unmeasured: [...unmeasured], hint: 'run render_frames to measure them' } : {}) };
+    },
+  ),
+
   check_arrows: cmd(
     'Arrows the studio would draw badly on a page: two that cross or run along each other, or one that cuts through a frame, table or node. Run it after laying out a flow and fix what it lists: move items first, else set fromSide/toSide. Run render_frames first if it lists unmeasured frames.',
     { ...where },

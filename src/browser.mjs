@@ -112,7 +112,41 @@ const MEASURE = `(async () => {
     const r = el.getBoundingClientRect();
     (parts[el.dataset.frComponent] ||= []).push([q(r.x), q(r.y + scrollY), q(r.width), q(r.height)]);
   }
-  return { height, anchors, parts };
+  // text that is hard to read: each element's own text against the background really behind it (WCAG:
+  // 4.5:1, or 3:1 for large text). Colours go through a 1px canvas, so any css colour syntax works.
+  const pen = new OffscreenCanvas(1, 1).getContext('2d', { willReadFrequently: true });
+  const rgba = (css) => {
+    pen.clearRect(0, 0, 1, 1);
+    pen.fillStyle = '#000';
+    pen.fillStyle = css;
+    pen.fillRect(0, 0, 1, 1);
+    const [r, g, b, a] = pen.getImageData(0, 0, 1, 1).data;
+    return [r, g, b, a / 255];
+  };
+  const over = (top, under) => [0, 1, 2].map((i) => top[i] * top[3] + under[i] * (1 - top[3])).concat(1);
+  const behind = (el) => {
+    const layers = [];
+    for (let at = el; at; at = at.parentElement) layers.push(rgba(getComputedStyle(at).backgroundColor));
+    return layers.reverse().reduce((under, top) => over(top, under), [255, 255, 255, 1]);
+  };
+  const lum = ([r, g, b]) => [r, g, b].map((c) => ((c /= 255) <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4)).reduce((s, c, i) => s + c * [0.2126, 0.7152, 0.0722][i], 0);
+  const hex = (c) => '#' + c.slice(0, 3).map((n) => Math.round(n).toString(16).padStart(2, '0')).join('');
+  const contrast = [];
+  for (const el of document.body.querySelectorAll('*')) {
+    const own = [...el.childNodes].filter((n) => n.nodeType === 3).map((n) => n.textContent).join('').trim();
+    if (!own) continue;
+    const style = getComputedStyle(el);
+    const r = el.getBoundingClientRect();
+    if (!r.width || !r.height || style.visibility === 'hidden' || +style.opacity === 0) continue;
+    const bg = behind(el);
+    const fg = over(rgba(style.color), bg);
+    const [a, b] = [lum(fg), lum(bg)].sort((x, y) => y - x);
+    const ratio = (a + 0.05) / (b + 0.05);
+    const size = parseFloat(style.fontSize);
+    const need = size >= 24 || (size >= 18.66 && +style.fontWeight >= 700) ? 3 : 4.5;
+    if (ratio < need) contrast.push({ text: own.slice(0, 40), ratio: q(ratio), need, fg: hex(fg), bg: hex(bg), box: [q(r.x), q(r.y + scrollY), q(r.width), q(r.height)] });
+  }
+  return { height, anchors, parts, contrast };
 })()`;
 
 async function shoot(cdp, session, file, frame) {
@@ -136,7 +170,7 @@ async function shoot(cdp, session, file, frame) {
   const height = frame.autoHeight && measured.height > 0 ? measured.height : frame.h;
   if (height !== probe) await send('Emulation.setDeviceMetricsOverride', { width: frame.w, height, deviceScaleFactor: 1, mobile: false });
   const { data } = await send('Page.captureScreenshot', { format: 'webp', quality: 72, clip: { x: 0, y: 0, width: frame.w, height, scale: SCALE } });
-  return { height, anchors: measured.anchors, parts: measured.parts, image: Buffer.from(data, 'base64') };
+  return { height, anchors: measured.anchors, parts: measured.parts, contrast: measured.contrast, image: Buffer.from(data, 'base64') };
 }
 
 const depsMtime = (store, project) => {
@@ -161,7 +195,7 @@ export async function render(store, args = {}, onProgress = () => {}) {
       const meta = store.inside(project, `.cache/anchors/${item.id}.json`);
       const known = existsSync(meta) ? JSON.parse(readFileSync(meta, 'utf8')) : null;
       const srcTime = store.mtime(store.inside(project, item.src));
-      const fresh = known && known.src === srcTime && known.deps === deps && known.w === item.w && known.h === item.h && existsSync(store.inside(project, `.cache/frames/${item.id}.webp`));
+      const fresh = known && known.contrast && known.src === srcTime && known.deps === deps && known.w === item.w && known.h === item.h && existsSync(store.inside(project, `.cache/frames/${item.id}.webp`));
       if (fresh && !args.force) skipped++;
       else todo.push({ page: pageName, item, srcTime });
     }
@@ -189,7 +223,7 @@ export async function render(store, args = {}, onProgress = () => {}) {
           const out = await shoot(cdp, sessionId, store.inside(project, item.src), item);
           writeFileSync(store.inside(project, `.cache/frames/${item.id}.webp`), out.image);
           if (out.height !== item.h) resized.push({ page, id: item.id, from: item.h, to: out.height });
-          writeFileSync(store.inside(project, `.cache/anchors/${item.id}.json`), JSON.stringify({ src: srcTime, deps, w: item.w, h: out.height, anchors: out.anchors, parts: out.parts }));
+          writeFileSync(store.inside(project, `.cache/anchors/${item.id}.json`), JSON.stringify({ src: srcTime, deps, w: item.w, h: out.height, anchors: out.anchors, parts: out.parts, contrast: out.contrast }));
         } catch (error) {
           failed.push({ id: item.id, error: error.message });
         }
