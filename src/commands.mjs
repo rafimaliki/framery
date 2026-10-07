@@ -18,6 +18,17 @@ const SIDES = ['top', 'right', 'bottom', 'left'];
 const ITEM_KEYS = ['id', 'type', 'x', 'y', 'w', 'h', 'title', 'step', 'description', 'src', 'device', 'shape', 'parent', 'autoHeight', 'columns', 'rows', 'marks'];
 const ARROW_KEYS = ['id', 'from', 'to', 'label', 'tone', 'fromSide', 'toSide'];
 
+// Where the studio runs: the address the server wrote when it started, while that process is alive.
+function studioUrl(store) {
+  try {
+    const { url, pid } = JSON.parse(readFileSync(`${store.root}/.cache/studio.json`, 'utf8'));
+    process.kill(pid, 0);
+    return url;
+  } catch {
+    return 'http://127.0.0.1:4173';
+  }
+}
+
 // ---- pages ---------------------------------------------------------------------------------------
 
 function pageId(store, project, wanted) {
@@ -553,7 +564,7 @@ export const commands = {
 
   link: cmd('The URL that opens a page, or focuses one item, in the studio. Hand it to the person reviewing.', { ...where, id: t.str('item id to focus') }, [], (store, a) => {
     const name = store.name(a.project);
-    const base = process.env.FRAMERY_URL ?? 'http://127.0.0.1:4173';
+    const base = process.env.FRAMERY_URL ?? studioUrl(store);
     return `${base}/#/${name}/${pageId(store, name, a.page)}${a.id ? '/' + a.id : ''}`;
   }),
 
