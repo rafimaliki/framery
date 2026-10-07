@@ -9,7 +9,7 @@ const nameOf = (item) => [item.step, item.title ?? item.id].filter(Boolean).join
 const refId = (ref) => ref.split('#')[0];
 const EXPORTABLE = new Set(['frame', 'group', 'node', 'table']);
 
-export function createInspector(el, { page, pageId, project, components, onPick, onOpen, onClose }) {
+export function createInspector(el, { page, pageId, project, components, onPick, onOpen, onClose, onPlay }) {
   const itemOf = (ref) => page().items.find((i) => i.id === refId(ref));
   const pick = (item) => () => item && onPick({ kind: 'item', id: item.id });
 
@@ -60,6 +60,9 @@ export function createInspector(el, { page, pageId, project, components, onPick,
     return [
       chips(kind, size, { text: item.id }),
       text(item.description, 'No description yet.'),
+      item.type === 'frame' && out.length
+        ? h('button', { class: 'inspector__open inspector__play', type: 'button', onclick: () => onPlay(item.id) }, h('span', { html: icon.play }), 'Play from here')
+        : null,
       item.type === 'frame'
         ? h('a', { class: 'inspector__open', href: `/preview.html?${new URLSearchParams({ project: project(), src: item.src, w: item.w, h: item.h, device: item.device ?? '', title: item.title ?? item.id })}`, target: '_blank', rel: 'noopener' }, 'Open page', h('span', { html: icon.link }))
         : null,

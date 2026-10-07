@@ -24,7 +24,7 @@ export function along(page, sel, dir) {
   return ways.length ? end(ways[0][other]) : null;
 }
 
-export function installShortcuts({ canvas, toggleSidebar, clearSelection, enabled, walk, find }) {
+export function installShortcuts({ canvas, toggleSidebar, clearSelection, enabled, walk, find, play }) {
   addEventListener('keydown', (event) => {
     if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
       event.preventDefault();
@@ -44,6 +44,7 @@ export function installShortcuts({ canvas, toggleSidebar, clearSelection, enable
       '+': () => canvas.zoomBy(1.25),
       '-': () => canvas.zoomBy(1 / 1.25),
       Escape: clearSelection,
+      p: play, // play the flow from the selected screen, or from its start
       '.': () => walk(1), // next screen along the flow
       ',': () => walk(-1), // the one before
       '/': find, // find on any page

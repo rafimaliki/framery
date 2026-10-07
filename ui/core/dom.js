@@ -29,6 +29,8 @@ export const icon = {
   arrowsAll: svg('<path d="M3 6h11M11 3l3 3-3 3M3 14h11M11 11l3 3-3 3"/>'),
   arrowsFocus: svg('<path d="M3 10h9M9 7l3 3-3 3"/><circle cx="16" cy="10" r="1.6"/>'),
   arrowsNone: svg('<path d="M3 10h11M11 7l3 3-3 3M3.5 3.5l13 13"/>'),
+  play: svg('<path d="M6 4v12l10-6Z"/>'),
+  back: svg('<path d="M12 4 6 10l6 6"/>'),
   warn: svg('<path d="M10 3 18 17H2Z"/><path d="M10 8v4M10 14.5v.01"/>'),
   minus: svg('<path d="M4 10h12"/>'),
   fit: svg('<path d="M3 7V3h4M13 3h4v4M17 13v4h-4M7 17H3v-4"/>'),
