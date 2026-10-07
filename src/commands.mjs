@@ -10,12 +10,13 @@ import { componentCommands } from './commands-components.mjs';
 import { historyCommands } from './commands-history.mjs';
 import { begin, record, snapshot } from './history.mjs';
 import { checkArrows } from '../ui/canvas/check.js';
+import { checkFlow } from './flow.mjs';
 
 const TYPES = ['frame', 'group', 'node', 'table'];
 const SHAPES = { terminal: [160, 56], process: [180, 72], diamond: [200, 120] };
 const TONES = ['neutral', 'positive', 'negative'];
 const SIDES = ['top', 'right', 'bottom', 'left'];
-const ITEM_KEYS = ['id', 'type', 'x', 'y', 'w', 'h', 'title', 'step', 'description', 'src', 'device', 'shape', 'parent', 'autoHeight', 'columns', 'rows', 'marks'];
+const ITEM_KEYS = ['id', 'type', 'x', 'y', 'w', 'h', 'title', 'step', 'description', 'src', 'device', 'shape', 'parent', 'autoHeight', 'end', 'columns', 'rows', 'marks'];
 const ARROW_KEYS = ['id', 'from', 'to', 'label', 'tone', 'fromSide', 'toSide'];
 
 // Where the studio runs: the address the server wrote when it started, while that process is alive.
@@ -172,6 +173,7 @@ const itemProps = {
   shape: t.one(Object.keys(SHAPES), 'node only'),
   parent: t.str('id of the group this item sits in'),
   autoHeight: t.bool('frame only: render_frames re-measures its height from the page'),
+  end: t.bool('frame only: this screen ends its flow on purpose (check_flow does not call it a dead end)'),
   columns: { type: 'array', items: { type: 'object' }, description: 'table only: [{id, title, note?}]; the width follows the count' },
   rows: { type: 'array', items: { type: 'object' }, description: 'table only: [{id, title, link?: "page/item", cells: {columnId: text}}]; the height follows the count' },
   marks: { type: 'object', description: `table only: cell text drawn as a pill, e.g. {"built": "positive"}; styles ${tables.MARK_STYLES.join(', ')}` },
@@ -527,6 +529,16 @@ export const commands = {
       const cache = store.inside(name, `.cache/anchors/${frame.id}.json`);
       const boxes = existsSync(cache) ? JSON.parse(readFileSync(cache, 'utf8')).anchors ?? {} : {};
       return anchorsOf(store, name, frame).map((id) => ({ id, box: boxes[id] }));
+    },
+  ),
+
+  check_flow: cmd(
+    'Whether the flows on a page make sense: one start per flow, everything reachable from it, no dead end that is not marked end:true, every diamond with two or more labelled answers, and every screen in a flow described. A group without arrows (a gallery, a spec sheet) is not a flow and is skipped.',
+    { ...where },
+    [],
+    (store, a) => {
+      const name = store.name(a.project);
+      return { problems: checkFlow(store.page(name, pageId(store, name, a.page))) };
     },
   ),
 

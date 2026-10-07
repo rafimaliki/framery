@@ -47,6 +47,7 @@ All writes go through the tools. They validate, keep ids stable, and the open st
 | lay out a flow | `layout_flow {group}` (or `{ids}`): from the arrows, the happy path in a row and every state under its screen; prefer it to placing by hand |
 | place things | `move_items {ids, dx, dy}`, `arrange {ids, direction:"row"|"column", gap}`, or give `x`,`y` on add |
 | move to another page | `move_to_page {page, ids, to, dx?, dy?}`: a group takes its members; arrows between moved items go along, an arrow that would cross pages is refused |
+| flows that make sense | `check_flow {page}`: one start per flow, nothing unreachable, no unmarked dead end (`end: true` on a screen that ends its flow), diamonds with two or more labelled answers, every screen described |
 | screens people can use | `check_design {page}`: tap targets under 44x44 on phone/tablet, text below WCAG contrast, arrows anchored to elements that are gone; fix what it lists before you finish (after `render_frames`) |
 | arrows draw clean | `check_arrows {page}`: crossings, overlaps, arrows through items, labels covering items or each other; must be empty |
 | change anything | `update_item {id, patch}`, `update_arrow {id, patch}`, `remove_item`, `remove_arrow` |

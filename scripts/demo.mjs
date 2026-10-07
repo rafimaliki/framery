@@ -106,7 +106,7 @@ await frames('onboarding', [
   ['email', 'Email', 'phone', '1.2', 'Email only, no password. The button stays disabled until the address parses.'],
   ['code', 'Code', 'phone', '1.3', 'Six boxes, filled from the SMS or the clipboard. Verify sends at the sixth digit.'],
   ['code-error', 'Code: wrong', 'phone', '1.3b', 'Same screen, error state. After three wrong codes the only action is a new code.'],
-  ['bank', 'Connect a bank', 'phone', '1.4', 'Optional. Skipping lands on an empty home with a prompt to connect later.'],
+  ['bank', 'Connect a bank', 'phone', '1.4', 'Optional. Skipping lands on an empty home with a prompt to connect later.', { end: true }],
 ]);
 await call('add_item', { page: 'onboarding', type: 'node', shape: 'terminal', id: 'open', title: 'App opened' });
 await call('add_item', { page: 'onboarding', type: 'node', shape: 'diamond', id: 'code-ok', title: 'Code right?' });
@@ -134,7 +134,7 @@ file('screens/app/dashboard.html', `<!doctype html>\n<html lang="en">\n<head>\n<
 await frames('app', [
   ['home', 'Home', 'phone', '2.1', 'What is left this month, then the last three payments. The meter turns red past 90%.'],
   ['activity', 'Activity', 'phone', '2.2', 'Every payment, newest first, grouped by day. Search covers merchant and note.'],
-  ['payment', 'Payment', 'phone', '2.3', 'One payment. Changing its category moves it between budgets at once.'],
+  ['payment', 'Payment', 'phone', '2.3', 'One payment. Changing its category moves it between budgets at once.', { end: true }],
   ['add', 'Add expense', 'phone', '2.4', 'For cash. The amount pad opens first; Save needs an amount.'],
   ['budgets', 'Budgets', 'tablet', '3.1', 'Tablet layout: two columns of budget cards.'],
   ['dashboard', 'Overview', 'desktop', '4.1', 'Web: the same numbers as home, with room for the full list.'],
@@ -144,6 +144,7 @@ for (const [from, to, label, tone] of [
   ['home#all', 'activity', 'tap See all', 'neutral'],
   ['activity#row', 'payment', 'tap a payment', 'neutral'],
   ['home#add', 'add', 'tap Add expense', 'positive'],
+  ['add#save', 'home', 'tap Save', 'positive'],
 ]) await call('connect', { page: 'app', from, to, label, tone });
 await call('layout_flow', { page: 'app', ids: ['home', 'activity', 'payment', 'add'], x: 0, y: 0 });
 await call('group_items', { page: 'app', id: 'spending', ids: ['home', 'activity', 'payment', 'add'], title: 'Spending', description: 'Amounts are always signed and coloured by direction, never by colour alone.' });
@@ -207,7 +208,7 @@ try {
   console.log(`demo: not checked against measured frames (${error.message})`);
 }
 for (const { id } of store.project(project).pages) {
-  const problems = [...(await call('check_arrows', { page: id })).problems, ...(await call('check_design', { page: id })).problems];
+  const problems = [...(await call('check_arrows', { page: id })).problems, ...(await call('check_design', { page: id })).problems, ...(await call('check_flow', { page: id })).problems];
   if (problems.length) throw new Error(`demo page ${id} has problems:\n${problems.map((p) => `  ${p.problem}`).join('\n')}`);
 }
 await run(store, 'checkpoint', { project, label: 'demo seeded' });
