@@ -2,8 +2,12 @@
 
 const typing = (el) => el && (/^(input|textarea|select)$/i.test(el.tagName) || el.isContentEditable);
 
-export function installShortcuts({ canvas, toggleSidebar, clearSelection, enabled }) {
+export function installShortcuts({ canvas, toggleSidebar, clearSelection, enabled, find }) {
   addEventListener('keydown', (event) => {
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
+      event.preventDefault();
+      return find();
+    }
     if (event.metaKey || event.ctrlKey || event.altKey || typing(document.activeElement)) return;
     if (event.key === '[') {
       event.preventDefault();
@@ -18,6 +22,7 @@ export function installShortcuts({ canvas, toggleSidebar, clearSelection, enable
       '+': () => canvas.zoomBy(1.25),
       '-': () => canvas.zoomBy(1 / 1.25),
       Escape: clearSelection,
+      '/': find, // find on any page
       ArrowLeft: () => canvas.pan(step, 0),
       ArrowRight: () => canvas.pan(-step, 0),
       ArrowUp: () => canvas.pan(0, step),
