@@ -69,7 +69,7 @@ npx framery init
 npx framery
 ```
 
-Then open <http://127.0.0.1:4173>.
+Then open <http://127.0.0.1:4173> (if that port is busy, the studio takes the next free one and prints it).
 
 `init` does four things, and is safe to run again:
 
@@ -108,7 +108,7 @@ npx framery doctor                                        # confirm
 ## Using it day to day
 
 ```text
-npx framery                  start the studio on http://127.0.0.1:4173 (--port N, --no-render)
+npx framery                  start the studio on http://127.0.0.1:4173 or the next free port (--port N: that port or fail; --no-render)
 npx framery mcp              the stdio MCP server (registered for you by init)
 npx framery init             wire a project; safe to repeat
 npx framery doctor           check versions and wiring
@@ -123,8 +123,8 @@ arrow can start or end on it.
 
 ### The tools an agent gets
 
-`outline`, `get_page`, `add_item`, `update_item`, `move_items`, `move_to_page`, `arrange`, `group_items`, `connect`, `check_arrows`,
-`list_anchors`, `set_cell` (and `add_row`, `add_column`, …), `set_token`, `render_frames`, `export_item`, `link`;
+`outline`, `get_page`, `add_item`, `update_item`, `rename_item`, `move_items`, `move_to_page`, `move_page`, `arrange`, `group_items`, `connect`, `check_arrows`,
+`batch`, `list_anchors`, `set_cell` (and `add_row`, `add_column`, …), `set_token`, `render_frames`, `export_item`, `link`;
 components: `create_component`, `update_component`, `use_component`, `promote_component`, `find_candidates`, …;
 and `history`, `checkpoint`, `undo`, `restore`. The skill tells an agent which to reach for.
 
