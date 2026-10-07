@@ -16,7 +16,8 @@ New tools:
 - `move_page {id, before?}` reorders pages.
 
 Studio:
-- Play a flow as a click-through prototype: "Play from here" or `P`.
+- Play a flow as a click-through prototype: "Play from here" on a screen, "Play flow" on a group with one start, or `P`.
+  ↗ plays it in a tab of its own, whose address follows the screen; the single-screen preview page is gone.
 - `/` or Ctrl+K finds anything on any page.
 - `.` and `,` step along the flow.
 - Arrows that cross, overlap or cut through an item glow, with a count on the zoom bar.
