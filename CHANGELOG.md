@@ -3,6 +3,33 @@
 Releases are git tags (`v0.1.0`). Nothing updates by itself: you pick a version, see "Updating" in the README.
 A release that changes the data format says so here and ships its migration; until then every project is format 1.
 
+## 0.4.0
+
+New tools:
+- `layout_flow {group | ids}` lays a flow out from its arrows: the longest path in one row (the happier arrow first at
+  a branch), every state or failure under the screen it belongs to. It returns what `check_arrows` then says.
+- `check_design {page}`: tap targets under 44x44 on phone and tablet frames, text below WCAG contrast (measured in the
+  rendered page), and arrows anchored to elements that are gone. `render_frames` now records contrast, so frames
+  rendered by 0.3.0 are measured again on the next render.
+- `batch {calls}` runs several tools as one step: all or nothing, one history entry.
+- `rename_item {id, to}` changes an id safely: arrows, children, table links on any page and the preview follow.
+- `move_page {id, before?}` reorders pages.
+
+Studio:
+- Play a flow as a click-through prototype: "Play from here" or `P`.
+- `/` or Ctrl+K finds anything on any page.
+- `.` and `,` step along the flow.
+- Arrows that cross, overlap or cut through an item glow, with a count on the zoom bar.
+- Labels keep off item captions and slide along their line to a clear spot.
+- A group caption with no room above it waits until there is room.
+- The layer list updates rows in place; an opened description stays open on refresh.
+- The export panel says when it lowered the scale.
+- The sidebar footer shows the version.
+
+Fixes:
+- The studio takes the next free port when 4173 is busy, and `link` follows it.
+- Chrome's temp profile cleanup no longer throws `EBUSY` on Windows, which could crash the studio after a render or export.
+
 ## 0.3.0
 
 `add_item` on a frame needs `device`: `phone`, `tablet` or `desktop` for a real screen of that device only, the new
