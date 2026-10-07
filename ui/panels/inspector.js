@@ -4,6 +4,7 @@
 
 import { h, icon } from '../core/dom.js';
 import { exportControls } from './exporter.js';
+import { flowStart } from './player.js';
 
 const nameOf = (item) => [item.step, item.title ?? item.id].filter(Boolean).join(' ');
 const refId = (ref) => ref.split('#')[0];
@@ -60,10 +61,12 @@ export function createInspector(el, { page, pageId, project, components, onPick,
     return [
       chips(kind, size, { text: item.id }),
       text(item.description, 'No description yet.'),
-      // one way to look at a screen: the player (which also opens it in a new tab)
+      // one way to look at a screen: the player (which also opens it in a new tab); a flow plays from its start
       item.type === 'frame'
         ? h('button', { class: 'inspector__open', type: 'button', onclick: () => onPlay(item.id) }, h('span', { html: icon.play }), out.length ? 'Play from here' : 'View screen')
-        : null,
+        : item.type === 'group' && flowStart(page(), item.id)
+          ? h('button', { class: 'inspector__open', type: 'button', onclick: () => onPlay(flowStart(page(), item.id)) }, h('span', { html: icon.play }), 'Play flow')
+          : null,
       section('Inside', inside.map((m) => linkRow([nameOf(m)], pick(m)))),
       section('Components', used.map((c) => linkRow([h('span', { class: 'link__dir', html: icon.component }), c.title ?? c.id], () => onPick({ kind: 'component', id: c.id, frame: item.id }), `×${c.frames.find((f) => f.id === item.id).count}`))),
       section('Comes from', into.map((a) => connection(a, false)).filter(Boolean)),

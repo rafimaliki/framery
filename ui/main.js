@@ -14,7 +14,7 @@ import { createHistory } from './panels/history.js';
 import { createSettingsMenu } from './panels/settings-menu.js';
 import { createSidebar } from './panels/sidebar.js';
 import { createFinder } from './panels/finder.js';
-import { createPlayer } from './panels/player.js';
+import { createPlayer, flowStart } from './panels/player.js';
 import { along, installShortcuts } from './panels/shortcuts.js';
 import { createZoombar } from './panels/zoombar.js';
 
@@ -74,7 +74,10 @@ installShortcuts({
   toggleSidebar: () => sidebar.toggle(),
   clearSelection: () => session.select(null),
   enabled: () => !!state.page,
-  play: () => player.play(state.sel?.kind === 'item' && state.page.items.find((i) => i.id === state.sel.id)?.type === 'frame' ? state.sel.id : undefined),
+  play: () => {
+    const it = state.sel?.kind === 'item' ? state.page.items.find((i) => i.id === state.sel.id) : null;
+    player.play(it?.type === 'frame' ? it.id : it?.type === 'group' ? flowStart(state.page, it.id) ?? undefined : undefined);
+  },
   find: () => finder.open(),
   walk: (dir) => {
     const id = along(state.page, state.sel, dir);

@@ -15,6 +15,7 @@ import { fit } from '../src/export.mjs';
 import { checkArrows } from '../ui/canvas/check.js';
 import { resolve } from '../ui/canvas/geometry.js';
 import { gapsOf } from '../ui/canvas/renderers/group.js';
+import { flowStart } from '../ui/panels/player.js';
 import { labelAt } from '../ui/canvas/routes.js';
 import { layoutFlow } from '../src/layout.mjs';
 import { init } from '../src/init.mjs';
@@ -201,6 +202,18 @@ test('move_page reorders the sidebar and refuses pages that do not exist', async
   assert.deepEqual((await call('move_page', { id: 'three' })).pages, ['flows', 'two', 'three']);
   await assert.rejects(call('move_page', { id: 'two', before: 'nope' }), /no page nope/);
   await assert.rejects(call('move_page', { id: 'nope' }), /no page nope/);
+});
+
+test('a group plays when exactly one item inside it starts the flow', () => {
+  const at = (id, parent) => ({ id, type: 'frame', parent, x: 0, y: 0, w: 10, h: 10 });
+  const page = {
+    items: [{ id: 'flow', type: 'group' }, { id: 'inner', type: 'group', parent: 'flow' }, at('a', 'flow'), at('b', 'inner'), at('c', 'flow'), { id: 'wall', type: 'group' }, at('x', 'wall'), at('y', 'wall')],
+    arrows: [{ id: '1', from: 'a#go', to: 'b' }, { id: '2', from: 'b', to: 'c' }],
+  };
+  assert.equal(flowStart(page, 'flow'), 'a', 'found through a nested group, anchored arrow and all');
+  assert.equal(flowStart(page, 'wall'), null, 'no arrows: not a flow');
+  page.arrows.push({ id: '3', from: 'x', to: 'c' }, { id: '4', from: 'y', to: 'c' });
+  assert.equal(flowStart(page, 'wall'), null, 'two starts: not one flow');
 });
 
 test('move_to_page carries a group, its members and their arrows; refuses crossing arrows and clashing ids', async () => {

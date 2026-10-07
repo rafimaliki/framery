@@ -10,6 +10,20 @@ const end = (ref) => ref.split('#')[0];
 const element = (ref) => ref.split('#')[1] ?? null;
 const PAD = 48; // room around the screen inside the stage
 
+// Where a group's flow starts: the one item inside it (at any depth) with arrows out and none in. None,
+// or more than one, and the group is not one playable flow.
+export function flowStart(page, groupId) {
+  const inside = new Set([groupId]);
+  for (let grew = true; grew; ) {
+    grew = false;
+    for (const i of page.items) if (i.parent && inside.has(i.parent) && !inside.has(i.id)) inside.add(i.id), (grew = true);
+  }
+  inside.delete(groupId);
+  const arrows = page.arrows ?? [];
+  const starts = [...inside].filter((id) => arrows.some((a) => end(a.from) === id) && !arrows.some((a) => end(a.to) === id));
+  return starts.length === 1 ? starts[0] : null;
+}
+
 export function createPlayer({ project, page, rev, onExit }) {
   const title = h('h2', { class: 'player__title' });
   const back = h('button', { class: 'icon-btn', type: 'button', 'aria-label': 'Back', title: 'Back', html: icon.back });
