@@ -34,6 +34,7 @@ file(
   --ink-soft: #6b6d76;
   --line: #e4e1d9;
   --accent: #3b5bdb;
+  --on-accent: #ffffff;
   --positive: #237a33;
   --negative: #c92a2a;
   --radius: 14px;
@@ -54,7 +55,7 @@ h2 { margin: 0; font-size: 17px; }
 .muted { color: var(--ink-soft); }
 .grow { flex: 1; }
 .btn { display: block; width: 100%; padding: 15px; border: 0; border-radius: var(--radius); font: 600 16px var(--font); background: var(--line); color: var(--ink); }
-.btn--primary { background: var(--accent); color: #fff; }
+.btn--primary { background: var(--accent); color: var(--on-accent); }
 .btn--ghost { background: transparent; color: var(--accent); }
 .field { display: grid; gap: 6px; }
 .field input { padding: 14px; border: 1px solid var(--line); border-radius: var(--radius); font: inherit; background: var(--surface); }
@@ -154,7 +155,7 @@ await call('group_items', { page: 'app', id: 'web', ids: ['dashboard'], title: '
 
 await call('add_page', { id: 'design-system', title: 'Design System' });
 const spec = (path, body) => file(path, `<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n<link rel="stylesheet" href="../../tokens.css">\n<link rel="stylesheet" href="../../app.css">\n</head>\n<body>\n<main class="spec">\n${body}\n</main>\n</body>\n</html>\n`);
-spec('screens/design-system/colors.html', `<h1>Colors</h1><div class="grid" style="--cols:5">${['paper', 'surface', 'ink', 'ink-soft', 'line', 'accent', 'positive', 'negative'].map((t) => `<div class="swatch"><i style="background:var(--${t})"></i><b>--${t}</b></div>`).join('')}</div>`);
+spec('screens/design-system/colors.html', `<h1>Colors</h1><div class="grid" style="--cols:5">${['paper', 'surface', 'ink', 'ink-soft', 'line', 'accent', 'on-accent', 'positive', 'negative'].map((t) => `<div class="swatch"><i style="background:var(--${t})"></i><b>--${t}</b></div>`).join('')}</div>`);
 spec('screens/design-system/type.html', `<h1>Type</h1><div class="balance">$1,284.50</div><span class="muted">Balance · 40 / 700</span><h1>Screen title</h1><span class="muted">Title · 28 / 700</span><h2>Section</h2><span class="muted">Section · 17 / 600</span><p>Body text for descriptions and rows. 15 / 400, line height 1.45.</p>`);
 spec('screens/design-system/controls.html', `<h1>Controls</h1><div class="grid" style="--cols:3"><button class="btn btn--primary">Primary</button><button class="btn">Secondary</button><button class="btn btn--ghost">Ghost</button></div><label class="field">Field<input placeholder="Placeholder"></label><label class="field field--error">Field with error<input value="481903"><small>That code is wrong or expired.</small></label>${rows([['Row', '−$6.40', 'out'], ['Row', '+$3,200.00', 'in']])}<div class="meter"><i style="width:62%"></i></div>`);
 await frames('design-system', [
@@ -210,5 +211,7 @@ for (const { id } of store.project(project).pages) {
   const problems = [...(await call('check_arrows', { page: id })).problems, ...(await call('check_design', { page: id })).problems];
   if (problems.length) throw new Error(`demo page ${id} has problems:\n${problems.map((p) => `  ${p.problem}`).join('\n')}`);
 }
+const typed = (await call('check_tokens', {})).problems;
+if (typed.length) throw new Error(`demo has values that should be tokens:\n${typed.map((p) => `  ${p.problem}`).join('\n')}`);
 await run(store, 'checkpoint', { project, label: 'demo seeded' });
 console.log(`demo: ${base}`);

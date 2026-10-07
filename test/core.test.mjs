@@ -13,6 +13,7 @@ import { findBrowser } from '../src/browser.mjs';
 import { doctor } from '../src/doctor.mjs';
 import { fit } from '../src/export.mjs';
 import { checkArrows } from '../ui/canvas/check.js';
+import { checkTokens } from '../src/tokens-check.mjs';
 import { resolve } from '../ui/canvas/geometry.js';
 import { gapsOf } from '../ui/canvas/renderers/group.js';
 import { flowStart } from '../ui/panels/player.js';
@@ -214,6 +215,26 @@ test('a group plays when exactly one item inside it starts the flow', () => {
   assert.equal(flowStart(page, 'wall'), null, 'no arrows: not a flow');
   page.arrows.push({ id: '3', from: 'x', to: 'c' }, { id: '4', from: 'y', to: 'c' });
   assert.equal(flowStart(page, 'wall'), null, 'two starts: not one flow');
+});
+
+test('check_tokens: colours and fitting sizes that equal a token, others reported, generated regions left alone', () => {
+  const tokenList = [{ name: '--accent', value: '#3b5bdb' }, { name: '--surface', value: '#ffffff' }, { name: '--on-accent', value: '#fff' }, { name: '--radius', value: '14px' }];
+  const files = [
+    { path: 'app.css', text: '.a { color: #3B5BDB; border-radius: 14px; padding: 14px; }\n.b { background: rgb(59, 91, 219); color: #999; }' },
+    { path: 'x.html', text: '<p style="color:#3b5bdb">a</p><!-- fr:component button --><b style="color:#3b5bdb">b</b><!-- /fr:component --><style>.c{background:#fff}</style>' },
+  ];
+  const { problems } = checkTokens(files, tokenList);
+  const said = problems.map((p) => p.problem);
+  assert.ok(said.includes('app.css: #3B5BDB is --accent: use var(--accent)'), said.join('; '));
+  assert.ok(said.includes('app.css: rgb(59, 91, 219) is --accent: use var(--accent)'), 'rgb() is the same colour');
+  assert.ok(said.includes('app.css: 14px is --radius: use var(--radius)'), 'a radius in border-radius');
+  assert.equal(said.filter((p) => p.includes('14px')).length, 1, 'but not 14px of padding');
+  assert.ok(said.some((p) => p.startsWith('app.css: #999 is not a token')));
+  assert.ok(said.includes('x.html: #fff is --surface or --on-accent: use var(--surface) or var(--on-accent)'), 'two names: a choice of meaning');
+  assert.equal(said.filter((p) => p.startsWith('x.html: #3b5bdb')).length, 1, 'the generated region is not counted');
+  const { changed } = checkTokens(files, tokenList, { fix: true });
+  assert.equal(changed.get('app.css'), '.a { color: var(--accent); border-radius: var(--radius); padding: 14px; }\n.b { background: var(--accent); color: #999; }');
+  assert.equal(changed.get('x.html'), '<p style="color:var(--accent)">a</p><!-- fr:component button --><b style="color:#3b5bdb">b</b><!-- /fr:component --><style>.c{background:#fff}</style>');
 });
 
 test('move_to_page carries a group, its members and their arrows; refuses crossing arrows and clashing ids', async () => {
