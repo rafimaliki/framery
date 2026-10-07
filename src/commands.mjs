@@ -1,7 +1,7 @@
 // The one command surface. The MCP server, the HTTP API and the CLI all call run(); each entry
 // carries its own description and input schema, so the tool list an agent sees is this table.
 
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { checkName, fail } from './store.mjs';
 import { DEVICES, arrange, find, fitGroup, members, outline, place, refElement, refItem, withMembers } from './layout.mjs';
 import * as tables from './tables.mjs';
@@ -17,6 +17,17 @@ const TONES = ['neutral', 'positive', 'negative'];
 const SIDES = ['top', 'right', 'bottom', 'left'];
 const ITEM_KEYS = ['id', 'type', 'x', 'y', 'w', 'h', 'title', 'step', 'description', 'src', 'device', 'shape', 'parent', 'autoHeight', 'columns', 'rows', 'marks'];
 const ARROW_KEYS = ['id', 'from', 'to', 'label', 'tone', 'fromSide', 'toSide'];
+
+// Where the studio runs: the address the server wrote when it started, while that process is alive.
+function studioUrl(store) {
+  try {
+    const { url, pid } = JSON.parse(readFileSync(`${store.root}/.cache/studio.json`, 'utf8'));
+    process.kill(pid, 0);
+    return url;
+  } catch {
+    return 'http://127.0.0.1:4173';
+  }
+}
 
 // ---- pages ---------------------------------------------------------------------------------------
 
@@ -287,6 +298,50 @@ export const commands = {
       }),
   ),
 
+  rename_item: cmd(
+    'Give an item a new id, safely: what is inside it, its arrows (anchors kept), table links to it on any page and its cached preview follow.',
+    { ...where, id: t.str('current item id'), to: t.str('new id') },
+    ['id', 'to'],
+    (store, a) => {
+      const name = store.name(a.project);
+      const here = pageId(store, name, a.page);
+      const to = checkName('id', a.to);
+      const page = store.page(name, here);
+      const item = find(page, a.id);
+      if (page.items.some((i) => i.id === to)) fail(`id ${to} is taken on ${here}`);
+      const from = item.id;
+      item.id = to;
+      for (const i of page.items) if (i.parent === from) i.parent = to;
+      const re = (ref) => (refItem(ref) === from ? to + ref.slice(from.length) : ref);
+      let arrows = 0;
+      for (const r of page.arrows ?? []) {
+        const [f, t] = [re(r.from), re(r.to)];
+        if (f !== r.from || t !== r.to) arrows++;
+        [r.from, r.to] = [f, t];
+      }
+      // a table row on any page may link here ("page/id")
+      const pages = new Map([[here, page]]);
+      let links = 0;
+      for (const { id } of store.project(name).pages ?? []) {
+        const other = pages.get(id) ?? store.page(name, id);
+        for (const row of (other.items ?? []).filter((i) => i.type === 'table').flatMap((i) => i.rows ?? [])) {
+          if (row.link === `${here}/${from}`) {
+            row.link = `${here}/${to}`;
+            pages.set(id, other);
+            links++;
+          }
+        }
+      }
+      for (const p of pages.values()) validate(store, name, p);
+      for (const [id, p] of pages) store.savePage(name, id, p);
+      for (const [dir, ext] of [['frames', 'webp'], ['anchors', 'json']]) {
+        const old = store.inside(name, `.cache/${dir}/${from}.${ext}`);
+        if (existsSync(old)) renameSync(old, store.inside(name, `.cache/${dir}/${to}.${ext}`));
+      }
+      return { page: here, from, to, arrows, links };
+    },
+  ),
+
   move_to_page: cmd(
     'Move items to another page; a group takes its members along. Arrows between moved items go with them; an arrow that would cross pages is refused. dx, dy shift them on the way.',
     { ...where, ids: t.ids, to: t.str('target page id'), dx: t.num('right'), dy: t.num('down') },
@@ -427,6 +482,26 @@ export const commands = {
     return { removed: a.id };
   }),
 
+  move_page: cmd(
+    'Change where a page sits in the sidebar: before another page, or last when before is omitted.',
+    { project, id: t.str('page id'), before: t.str('the page it should come before') },
+    ['id'],
+    (store, a) => {
+      const name = store.name(a.project);
+      const info = store.project(name);
+      const pages = info.pages ?? [];
+      const page = pages.find((p) => p.id === a.id);
+      if (!page) fail(`no page ${a.id}`);
+      if (a.before === a.id) fail('a page cannot come before itself');
+      const rest = pages.filter((p) => p !== page);
+      const at = a.before == null ? rest.length : rest.findIndex((p) => p.id === a.before);
+      if (at < 0) fail(`no page ${a.before}`);
+      info.pages = [...rest.slice(0, at), page, ...rest.slice(at)];
+      store.saveProject(name, info);
+      return { pages: info.pages.map((p) => p.id) };
+    },
+  ),
+
   list_anchors: cmd(
     'Element ids a frame offers as arrow anchors, with their measured boxes (frame pixels) once the frame has been rendered.',
     { ...where, frame: t.str('frame id') },
@@ -553,7 +628,7 @@ export const commands = {
 
   link: cmd('The URL that opens a page, or focuses one item, in the studio. Hand it to the person reviewing.', { ...where, id: t.str('item id to focus') }, [], (store, a) => {
     const name = store.name(a.project);
-    const base = process.env.FRAMERY_URL ?? 'http://127.0.0.1:4173';
+    const base = process.env.FRAMERY_URL ?? studioUrl(store);
     return `${base}/#/${name}/${pageId(store, name, a.page)}${a.id ? '/' + a.id : ''}`;
   }),
 

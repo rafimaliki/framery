@@ -3,7 +3,7 @@
 
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
-import { existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
@@ -16,6 +16,8 @@ import { checkArrows } from '../src/arrow-check.mjs';
 import { resolve } from '../ui/canvas/geometry.js';
 import { init } from '../src/init.mjs';
 import { Store } from '../src/store.mjs';
+import { serve } from '../src/server.mjs';
+import { createServer } from 'node:net';
 
 const PKG = fileURLToPath(new URL('..', import.meta.url));
 
@@ -101,6 +103,37 @@ test('batch runs calls in order as one history entry, and a failing call leaves 
   assert.ok(!existsSync(join(store.dir(project), 'pages', 'p2.json')), 'a file a call made is gone');
   assert.ok(!store.project(project).pages.some((p) => p.id === 'p2'));
   await assert.rejects(call('batch', { calls: [{ tool: 'undo', args: {} }] }), /cannot run inside a batch/);
+});
+
+test('rename_item carries arrows, children, table links and the preview to the new id', async () => {
+  const { call, store, project } = scratch();
+  await call('add_item', { type: 'frame', id: 'a', src: 'a.html', device: 'phone', x: 0, y: 0 });
+  await call('add_item', { type: 'frame', id: 'b', src: 'b.html', device: 'phone', x: 600, y: 0 });
+  await call('connect', { from: 'a#go-a', to: 'b' });
+  await call('group_items', { id: 'flow', ids: ['a', 'b'], title: 'Flow' });
+  await run(store, 'add_page', { project, id: 'plan', title: 'Plan' });
+  await call('add_item', { page: 'plan', type: 'table', id: 't', title: 'T', columns: [{ id: 'c', title: 'C' }], rows: [{ id: 'r', title: 'R', link: 'flows/a', cells: {} }] });
+  mkdirSync(join(store.dir(project), '.cache', 'frames'), { recursive: true });
+  writeFileSync(join(store.dir(project), '.cache', 'frames', 'a.webp'), 'x');
+  await assert.rejects(call('rename_item', { id: 'a', to: 'b' }), /taken/);
+  const out = await call('rename_item', { id: 'a', to: 'start' });
+  assert.deepEqual([out.arrows, out.links], [1, 1]);
+  const page = store.page(project, 'flows');
+  assert.equal(page.arrows[0].from, 'start#go-a', 'the anchor stays');
+  assert.equal(page.items.find((i) => i.id === 'start').parent, 'flow');
+  assert.equal(store.page(project, 'plan').items[0].rows[0].link, 'flows/start');
+  assert.ok(existsSync(join(store.dir(project), '.cache', 'frames', 'start.webp')));
+});
+
+test('move_page reorders the sidebar and refuses pages that do not exist', async () => {
+  const { store, project } = scratch();
+  const call = (tool, args) => run(store, tool, { project, ...args });
+  await call('add_page', { id: 'two', title: 'Two' });
+  await call('add_page', { id: 'three', title: 'Three' });
+  assert.deepEqual((await call('move_page', { id: 'three', before: 'flows' })).pages, ['three', 'flows', 'two']);
+  assert.deepEqual((await call('move_page', { id: 'three' })).pages, ['flows', 'two', 'three']);
+  await assert.rejects(call('move_page', { id: 'two', before: 'nope' }), /no page nope/);
+  await assert.rejects(call('move_page', { id: 'nope' }), /no page nope/);
 });
 
 test('move_to_page carries a group, its members and their arrows; refuses crossing arrows and clashing ids', async () => {
@@ -270,6 +303,20 @@ test('export: a frame as png, pdf and svg, a group through the studio, and a bad
 test('paths cannot leave the project', async () => {
   const { call } = scratch();
   await assert.rejects(call('add_item', { type: 'frame', src: '../../etc/passwd' }), /leaves the project|no file/);
+});
+
+test('the studio takes the next free port unless one was asked for, and link follows it', async () => {
+  const { store, project } = scratch();
+  const listening = (server) => new Promise((ok, no) => server.once('listening', ok).once('error', no));
+  const busy = createServer().listen(0, '127.0.0.1');
+  await listening(busy);
+  const taken = busy.address().port;
+  const studio = serve({ root: store.root, port: taken, autoRender: false, quiet: true });
+  await new Promise((ok) => studio.once('listening', ok)); // the busy port's error is the server's own to handle
+  assert.equal(studio.address().port, taken + 1);
+  assert.match(await run(store, 'link', { project, page: 'flows' }), new RegExp(`:${taken + 1}/#/`));
+  studio.close();
+  busy.close();
 });
 
 test('MCP: initialize, list tools, call one, report an error as isError', async () => {
