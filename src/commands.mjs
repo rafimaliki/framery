@@ -3,7 +3,7 @@
 
 import { existsSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { checkName, fail } from './store.mjs';
-import { DEVICES, arrange, find, fitGroup, members, outline, place, refElement, refItem, withMembers } from './layout.mjs';
+import { DEVICES, arrange, find, fitGroup, layoutFlow, members, outline, place, refElement, refItem, withMembers } from './layout.mjs';
 import * as tables from './tables.mjs';
 import { cmd, project, t, where } from './kit.mjs';
 import { componentCommands } from './commands-components.mjs';
@@ -384,6 +384,21 @@ export const commands = {
       store.savePage(name, from, source);
       store.savePage(name, to, target);
       return { page: from, to, moved: [...ids], arrows: arrows.map((r) => r.id) };
+    },
+  ),
+
+  layout_flow: cmd(
+    'Lay a flow out from its arrows, instead of placing items by hand: the happy path in one row (positive arrows first at a branch), every state or failure directly under the screen it belongs to. Give a group (its members are laid out and it is refit) or ids. Returns what check_arrows then says, which should be nothing.',
+    { ...where, group: t.str('lay out the members of this group'), ids: t.ids, gap: t.num('between columns, default 140'), rowGap: t.num('between rows, default 160'), x: t.num('left edge; default where the items are'), y: t.num('top edge') },
+    [],
+    async (store, a) => {
+      if (!a.group === !a.ids) fail('give a group or ids, not both');
+      const out = edit(store, a, (page) => {
+        const ids = a.group ? (find(page, a.group), members(page, a.group).map((i) => i.id)) : a.ids;
+        if (!ids.length) fail(`group ${a.group} is empty`);
+        return { moved: layoutFlow(page, ids, a).map((i) => i.id) };
+      });
+      return { ...out, ...(await commands.check_arrows.run(store, { project: a.project, page: out.page })) };
     },
   ),
 

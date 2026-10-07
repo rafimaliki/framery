@@ -44,6 +44,7 @@ All writes go through the tools. They validate, keep ids stable, and the open st
 | a flowchart shape | `add_item {type:"node", shape:"diamond"|"process"|"terminal", title}` |
 | a connection | `connect {from, to, label, tone:"positive"|"negative"|"neutral"}` |
 | anchor to an element | `connect {from:"frame-id#element-id", ...}` — the element needs `id="..."` or `data-anchor="..."` in the frame's html; `list_anchors {frame}` shows what exists |
+| lay out a flow | `layout_flow {group}` (or `{ids}`): from the arrows, the happy path in a row and every state under its screen; prefer it to placing by hand |
 | place things | `move_items {ids, dx, dy}`, `arrange {ids, direction:"row"|"column", gap}`, or give `x`,`y` on add |
 | move to another page | `move_to_page {page, ids, to, dx?, dy?}`: a group takes its members; arrows between moved items go along, an arrow that would cross pages is refused |
 | arrows draw clean | `check_arrows {page}`: crossings, overlaps, arrows through items, labels covering items or each other; must be empty |
