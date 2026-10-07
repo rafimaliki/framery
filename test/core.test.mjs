@@ -81,6 +81,30 @@ test('arrows: crossings and cuts through items are reported; a shared lane is sp
   assert.deepEqual(checkArrows(stacked, [{ id: 'up', from: 'f#retry', to: 'top' }], (id, el) => (id === 'f' && el === 'retry' ? [16, 780, 358, 48] : null)), []);
 });
 
+test('batch runs calls in order as one history entry, and a failing call leaves nothing changed', async () => {
+  const { call, store, project } = scratch();
+  const files = () => readFileSync(join(store.dir(project), 'pages', 'flows.json'), 'utf8');
+  const out = await call('batch', {
+    calls: [
+      { tool: 'add_item', args: { type: 'frame', id: 'a', src: 'a.html', device: 'phone' } },
+      { tool: 'add_item', args: { type: 'frame', id: 'b', src: 'b.html', device: 'phone' } },
+      { tool: 'connect', args: { from: 'a', to: 'b' } },
+    ],
+  });
+  assert.equal(out.length, 3);
+  const trail = await run(store, 'history', { project });
+  assert.deepEqual(trail[0].tools, ['batch'], 'one entry for the three calls');
+  const before = files();
+  await assert.rejects(
+    call('batch', { calls: [{ tool: 'update_item', args: { id: 'a', patch: { title: 'Renamed' } } }, { tool: 'add_page', args: { id: 'p2', title: 'P2' } }, { tool: 'connect', args: { from: 'a', to: 'ghost' } }] }),
+    /call 3 \(connect\).*Nothing was changed/,
+  );
+  assert.equal(files(), before, 'the first call was undone');
+  assert.ok(!existsSync(join(store.dir(project), 'pages', 'p2.json')), 'a file a call made is gone');
+  assert.ok(!store.project(project).pages.some((p) => p.id === 'p2'));
+  await assert.rejects(call('batch', { calls: [{ tool: 'undo', args: {} }] }), /cannot run inside a batch/);
+});
+
 test('rename_item carries arrows, children, table links and the preview to the new id', async () => {
   const { call, store, project } = scratch();
   await call('add_item', { type: 'frame', id: 'a', src: 'a.html', device: 'phone', x: 0, y: 0 });

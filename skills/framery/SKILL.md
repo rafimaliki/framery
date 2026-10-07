@@ -48,6 +48,7 @@ All writes go through the tools. They validate, keep ids stable, and the open st
 | move to another page | `move_to_page {page, ids, to, dx?, dy?}`: a group takes its members; arrows between moved items go along, an arrow that would cross pages is refused |
 | arrows draw clean | `check_arrows {page}`: crossings, overlaps, arrows through items, labels covering items or each other; must be empty |
 | change anything | `update_item {id, patch}`, `update_arrow {id, patch}`, `remove_item`, `remove_arrow` |
+| many edits at once | `batch {page?, calls:[{tool, args}]}`: one request, all or nothing, one history entry. Use it for any run of several edits (renames, a whole flow) |
 | a better id | `rename_item {id, to}`: arrows, children, table links on any page and the cached preview follow |
 | a new page | `add_page {id, title}`; reorder with `move_page {id, before?}` (omit `before` to put it last) |
 | tokens | `set_token {name, value}` |

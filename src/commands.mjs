@@ -8,7 +8,7 @@ import * as tables from './tables.mjs';
 import { cmd, project, t, where } from './kit.mjs';
 import { componentCommands } from './commands-components.mjs';
 import { historyCommands } from './commands-history.mjs';
-import { begin, record } from './history.mjs';
+import { begin, record, snapshot } from './history.mjs';
 import { checkArrows } from './arrow-check.mjs';
 
 const TYPES = ['frame', 'group', 'node', 'table'];
@@ -632,15 +632,44 @@ export const commands = {
     return `${base}/#/${name}/${pageId(store, name, a.page)}${a.id ? '/' + a.id : ''}`;
   }),
 
+  batch: cmd(
+    'Run several tools as one step: in order, all or nothing (if one call fails, the ones before it are undone and nothing is saved), recorded as one history entry. project and page given here are the default for every call.',
+    { ...where, calls: { type: 'array', items: { type: 'object' }, description: '[{tool, args}], e.g. [{"tool":"update_item","args":{"id":"a","patch":{"title":"Home"}}}]' } },
+    ['calls'],
+    async (store, a) => {
+      if (!Array.isArray(a.calls) || !a.calls.length) fail('calls: a list of {tool, args}');
+      const name = store.name(a.project);
+      const undo = snapshot(store, name);
+      const results = [];
+      for (const [i, call] of a.calls.entries()) {
+        try {
+          if (call?.tool === 'batch' || historyCommands[call?.tool]) fail(`${call.tool} cannot run inside a batch`);
+          const props = commands[call?.tool]?.input.properties ?? {};
+          const args = { ...('project' in props ? { project: name } : {}), ...(a.page && 'page' in props ? { page: a.page } : {}), ...call?.args };
+          results.push(await checked(call?.tool, args).run(store, args));
+        } catch (error) {
+          undo();
+          fail(`call ${i + 1} (${call?.tool}): ${error.message}. Nothing was changed.`);
+        }
+      }
+      return results;
+    },
+  ),
+
   ...componentCommands,
   ...historyCommands,
 };
 
-export async function run(store, name, args = {}) {
+function checked(name, args) {
   const command = commands[name];
   if (!command) fail(`unknown command ${name}; have: ${Object.keys(commands).join(', ')}`);
   for (const key of command.input.required) if (args[key] === undefined) fail(`${name}: "${key}" is required`);
   for (const key of Object.keys(args)) if (!(key in command.input.properties)) fail(`${name}: unknown argument "${key}"`);
+  return command;
+}
+
+export async function run(store, name, args = {}) {
+  const command = checked(name, args);
   // Every command is followed by a look at what it changed, so the undo trail covers the tools without
   // each tool knowing about it. The history commands keep their own books.
   const tracked = historyCommands[name] ? null : projectOf(store, args);
