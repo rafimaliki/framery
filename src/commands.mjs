@@ -1,7 +1,7 @@
 // The one command surface. The MCP server, the HTTP API and the CLI all call run(); each entry
 // carries its own description and input schema, so the tool list an agent sees is this table.
 
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { checkName, fail } from './store.mjs';
 import { DEVICES, arrange, find, fitGroup, members, outline, place, refElement, refItem, withMembers } from './layout.mjs';
 import * as tables from './tables.mjs';
@@ -285,6 +285,50 @@ export const commands = {
         for (const parent of new Set(a.ids.map((id) => find(page, id).parent).filter(Boolean))) fitGroup(page, parent);
         return { moved: moved.map((i) => i.id) };
       }),
+  ),
+
+  rename_item: cmd(
+    'Give an item a new id, safely: what is inside it, its arrows (anchors kept), table links to it on any page and its cached preview follow.',
+    { ...where, id: t.str('current item id'), to: t.str('new id') },
+    ['id', 'to'],
+    (store, a) => {
+      const name = store.name(a.project);
+      const here = pageId(store, name, a.page);
+      const to = checkName('id', a.to);
+      const page = store.page(name, here);
+      const item = find(page, a.id);
+      if (page.items.some((i) => i.id === to)) fail(`id ${to} is taken on ${here}`);
+      const from = item.id;
+      item.id = to;
+      for (const i of page.items) if (i.parent === from) i.parent = to;
+      const re = (ref) => (refItem(ref) === from ? to + ref.slice(from.length) : ref);
+      let arrows = 0;
+      for (const r of page.arrows ?? []) {
+        const [f, t] = [re(r.from), re(r.to)];
+        if (f !== r.from || t !== r.to) arrows++;
+        [r.from, r.to] = [f, t];
+      }
+      // a table row on any page may link here ("page/id")
+      const pages = new Map([[here, page]]);
+      let links = 0;
+      for (const { id } of store.project(name).pages ?? []) {
+        const other = pages.get(id) ?? store.page(name, id);
+        for (const row of (other.items ?? []).filter((i) => i.type === 'table').flatMap((i) => i.rows ?? [])) {
+          if (row.link === `${here}/${from}`) {
+            row.link = `${here}/${to}`;
+            pages.set(id, other);
+            links++;
+          }
+        }
+      }
+      for (const p of pages.values()) validate(store, name, p);
+      for (const [id, p] of pages) store.savePage(name, id, p);
+      for (const [dir, ext] of [['frames', 'webp'], ['anchors', 'json']]) {
+        const old = store.inside(name, `.cache/${dir}/${from}.${ext}`);
+        if (existsSync(old)) renameSync(old, store.inside(name, `.cache/${dir}/${to}.${ext}`));
+      }
+      return { page: here, from, to, arrows, links };
+    },
   ),
 
   move_to_page: cmd(
