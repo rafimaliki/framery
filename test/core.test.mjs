@@ -16,6 +16,7 @@ import { checkArrows } from '../src/arrow-check.mjs';
 import { resolve } from '../ui/canvas/geometry.js';
 import { init } from '../src/init.mjs';
 import { Store } from '../src/store.mjs';
+import { along } from '../ui/panels/shortcuts.js';
 
 const PKG = fileURLToPath(new URL('..', import.meta.url));
 
@@ -77,6 +78,25 @@ test('arrows: crossings and cuts through items are reported; a shared lane is sp
   assert.deepEqual(yes.p0, [200, 60]);
   assert.deepEqual(no.p0, [100, 120], 'the second branch leaves from the bottom point');
   assert.deepEqual(checkArrows(stacked, [{ id: 'up', from: 'f#retry', to: 'top' }], (id, el) => (id === 'f' && el === 'retry' ? [16, 780, 358, 48] : null)), []);
+});
+
+test('stepping along a flow follows arrows, the happy path first at a branch', () => {
+  const at = (id, x, y) => ({ id, type: 'frame', x, y, w: 10, h: 10 });
+  const page = {
+    items: [at('a', 0, 0), at('q', 100, 0), at('yes', 200, 0), at('no', 200, 100), at('lone', 0, 500)],
+    arrows: [
+      { id: 'aq', from: 'a#go', to: 'q' },
+      { id: 'qn', from: 'q', to: 'no', tone: 'negative' },
+      { id: 'qy', from: 'q', to: 'yes', tone: 'positive' },
+    ],
+  };
+  assert.equal(along(page, null, 1), 'a', 'nothing selected: the start of the flow');
+  assert.equal(along(page, { kind: 'item', id: 'a' }, 1), 'q', 'an anchored arrow counts');
+  assert.equal(along(page, { kind: 'item', id: 'q' }, 1), 'yes');
+  assert.equal(along(page, { kind: 'item', id: 'no' }, -1), 'q');
+  assert.equal(along(page, { kind: 'arrow', id: 'qn' }, 1), 'no');
+  assert.equal(along(page, { kind: 'item', id: 'yes' }, 1), null, 'the end of the flow');
+  assert.equal(along(page, { kind: 'item', id: 'lone' }, -1), null);
 });
 
 test('move_to_page carries a group, its members and their arrows; refuses crossing arrows and clashing ids', async () => {

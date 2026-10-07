@@ -35,6 +35,7 @@ Framery gives the agent a board it can read and edit through tools, and gives yo
 | **Design system and plan** | Pages are just boards. A design system page shows components alone; a plan page is a table (flows against phases) that agents update one cell at a time. |
 | **Export** | Any frame, flow or table as png, webp, svg or pdf, from the detail panel. |
 | **History** | Undo trail with restore. Each prompt is one step. |
+| **Keys** | `.` and `,` step to the next and previous screen along the arrows (the happy path first). Arrow keys pan (Shift for more), `0` fits, `1` is 100%, `+` and `-` zoom, `[` folds the sidebar, `Esc` clears the selection. |
 
 <table>
 <tr>
