@@ -16,6 +16,8 @@ import { checkArrows } from '../src/arrow-check.mjs';
 import { resolve } from '../ui/canvas/geometry.js';
 import { init } from '../src/init.mjs';
 import { Store } from '../src/store.mjs';
+import { serve } from '../src/server.mjs';
+import { createServer } from 'node:net';
 
 const PKG = fileURLToPath(new URL('..', import.meta.url));
 
@@ -97,6 +99,17 @@ test('rename_item carries arrows, children, table links and the preview to the n
   assert.equal(page.items.find((i) => i.id === 'start').parent, 'flow');
   assert.equal(store.page(project, 'plan').items[0].rows[0].link, 'flows/start');
   assert.ok(existsSync(join(store.dir(project), '.cache', 'frames', 'start.webp')));
+});
+
+test('move_page reorders the sidebar and refuses pages that do not exist', async () => {
+  const { store, project } = scratch();
+  const call = (tool, args) => run(store, tool, { project, ...args });
+  await call('add_page', { id: 'two', title: 'Two' });
+  await call('add_page', { id: 'three', title: 'Three' });
+  assert.deepEqual((await call('move_page', { id: 'three', before: 'flows' })).pages, ['three', 'flows', 'two']);
+  assert.deepEqual((await call('move_page', { id: 'three' })).pages, ['flows', 'two', 'three']);
+  await assert.rejects(call('move_page', { id: 'two', before: 'nope' }), /no page nope/);
+  await assert.rejects(call('move_page', { id: 'nope' }), /no page nope/);
 });
 
 test('move_to_page carries a group, its members and their arrows; refuses crossing arrows and clashing ids', async () => {
@@ -266,6 +279,20 @@ test('export: a frame as png, pdf and svg, a group through the studio, and a bad
 test('paths cannot leave the project', async () => {
   const { call } = scratch();
   await assert.rejects(call('add_item', { type: 'frame', src: '../../etc/passwd' }), /leaves the project|no file/);
+});
+
+test('the studio takes the next free port unless one was asked for, and link follows it', async () => {
+  const { store, project } = scratch();
+  const listening = (server) => new Promise((ok, no) => server.once('listening', ok).once('error', no));
+  const busy = createServer().listen(0, '127.0.0.1');
+  await listening(busy);
+  const taken = busy.address().port;
+  const studio = serve({ root: store.root, port: taken, autoRender: false, quiet: true });
+  await new Promise((ok) => studio.once('listening', ok)); // the busy port's error is the server's own to handle
+  assert.equal(studio.address().port, taken + 1);
+  assert.match(await run(store, 'link', { project, page: 'flows' }), new RegExp(`:${taken + 1}/#/`));
+  studio.close();
+  busy.close();
 });
 
 test('MCP: initialize, list tools, call one, report an error as isError', async () => {

@@ -49,7 +49,7 @@ All writes go through the tools. They validate, keep ids stable, and the open st
 | arrows draw clean | `check_arrows {page}`: crossings, overlaps, arrows through items, labels covering items or each other; must be empty |
 | change anything | `update_item {id, patch}`, `update_arrow {id, patch}`, `remove_item`, `remove_arrow` |
 | a better id | `rename_item {id, to}`: arrows, children, table links on any page and the cached preview follow |
-| a new page | `add_page {id, title}` |
+| a new page | `add_page {id, title}`; reorder with `move_page {id, before?}` (omit `before` to put it last) |
 | tokens | `set_token {name, value}` |
 | a table | `add_item {type:"table", columns:[{id,title,note?}], rows:[{id,title,link?:"page/item",cells:{columnId:text}}], marks:{"built":"positive"}}` |
 | progress in a table | `set_cell {id, row, column, value}`: one cell, the cheapest edit; `add_row`, `remove_row`, `add_column`, `remove_column` |
@@ -144,7 +144,7 @@ generated component regions and previews follow. Do not restore on your own init
 
 `npx framery cmd <tool> '<json>'` runs any tool from a shell and prints the result;
 `npx framery tools` lists them with descriptions. Start the studio with `npx framery`
-(http://127.0.0.1:4173).
+(http://127.0.0.1:4173, or the next free port: `link` knows which).
 
 ## Updating framery
 
