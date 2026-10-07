@@ -17,6 +17,10 @@ import { fail } from './store.mjs';
 
 export const FORMATS = { png: 'image/png', webp: 'image/webp', pdf: 'application/pdf', svg: 'image/svg+xml' };
 const MAX_SIDE = 16000; // a browser cannot draw a texture larger than this on a side
+const MAX_PIXELS = 32e6; // past ~40M pixels (less under memory pressure) Chrome never answers the screenshot
+const CAPTURE_MS = 60000;
+const within = (ms, promise) => Promise.race([promise, new Promise((_, reject) => setTimeout(() => reject(new Error(`the browser did not answer within ${ms / 1000}s; try a smaller scale or pdf`)), ms).unref())]);
+export const fit = (scale, width, height) => Math.min(scale, MAX_SIDE / Math.max(width, height), Math.sqrt(MAX_PIXELS / (width * height)));
 
 const freePort = () =>
   new Promise((resolve) => {
@@ -63,7 +67,7 @@ async function capture(page, { format, width, height, scale }) {
     return Buffer.from(data, 'base64');
   }
   const raster = format === 'webp' ? 'webp' : 'png';
-  const { data } = await page.send('Page.captureScreenshot', { format: raster, ...(raster === 'webp' ? { quality: 92 } : {}), clip: { x: 0, y: 0, width, height, scale: 1 } });
+  const { data } = await within(CAPTURE_MS, page.send('Page.captureScreenshot', { format: raster, ...(raster === 'webp' ? { quality: 92 } : {}), clip: { x: 0, y: 0, width, height, scale: 1 } }));
   const bytes = Buffer.from(data, 'base64');
   if (format !== 'svg') return bytes;
   const href = `data:image/png;base64,${data}`;
@@ -89,7 +93,7 @@ export async function exportItem(store, a) {
     if (item.type === 'frame') {
       width = item.w;
       height = item.h;
-      scale = Math.min(scale, MAX_SIDE / Math.max(width, height));
+      scale = fit(scale, width, height);
       page = await open(exe, { width, height, scale, transparent });
       await page.go(pathToFileURL(store.inside(name, item.src)).href);
       await page.send('Runtime.evaluate', { expression: 'document.fonts.ready', awaitPromise: true });
@@ -113,7 +117,7 @@ export async function exportItem(store, a) {
       }
       if (!size) fail('the export page did not finish loading');
       ({ width, height } = size);
-      scale = Math.min(scale, MAX_SIDE / Math.max(width, height));
+      scale = fit(scale, width, height);
       await page.send('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: scale, mobile: false });
       await new Promise((r) => setTimeout(r, 300));
     }

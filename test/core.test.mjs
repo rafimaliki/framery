@@ -11,6 +11,9 @@ import { fileURLToPath } from 'node:url';
 import { run } from '../src/commands.mjs';
 import { findBrowser } from '../src/browser.mjs';
 import { doctor } from '../src/doctor.mjs';
+import { fit } from '../src/export.mjs';
+import { checkArrows } from '../src/arrow-check.mjs';
+import { resolve } from '../ui/canvas/geometry.js';
 import { init } from '../src/init.mjs';
 import { Store } from '../src/store.mjs';
 
@@ -28,17 +31,83 @@ function scratch() {
 
 test('frames get device sizes, positions and stable ids', async () => {
   const { call } = scratch();
-  const a = (await call('add_item', { type: 'frame', title: 'Screen A', src: 'a.html' })).item;
+  const a = (await call('add_item', { type: 'frame', title: 'Screen A', src: 'a.html', device: 'phone' })).item;
   const b = (await call('add_item', { type: 'frame', title: 'Screen B', src: 'b.html', device: 'desktop' })).item;
   assert.equal(a.id, 'screen-a');
   assert.deepEqual([a.w, a.h, b.w, b.h], [390, 844, 1280, 800]);
   assert.ok(b.x >= a.x + a.w, 'a new frame lands right of its neighbour');
 });
 
+test('a frame must say its device; document is a fixed width with auto height', async () => {
+  const { call } = scratch();
+  await assert.rejects(call('add_item', { type: 'frame', src: 'a.html' }), /needs device/);
+  const doc = (await call('add_item', { type: 'frame', id: 'spec', src: 'a.html', device: 'document' })).item;
+  assert.deepEqual([doc.w, doc.h, doc.autoHeight], [960, 1200, true]);
+});
+
+test('export caps the scale by side and by area', () => {
+  assert.ok(Math.abs(fit(3, 4678, 3528) - 1.39) < 0.01);
+  assert.equal(fit(3, 390, 844), 3);
+  assert.equal(fit(3, 20000, 100), 0.8);
+});
+
+test('arrows: crossings and cuts through items are reported; a shared lane is spread; a bottom control leaves sideways', () => {
+  const frame = (id, x, y) => ({ id, type: 'frame', x, y, w: 390, h: 844 });
+  const none = () => null;
+  // an X: a -> d and c -> b swap rows in the gap between the columns
+  const x = [frame('a', 0, 0), frame('b', 600, 0), frame('c', 0, 1000), frame('d', 600, 1000)];
+  const crossed = checkArrows(x, [{ id: 'ad', from: 'a', to: 'd' }, { id: 'cb', from: 'c', to: 'b' }], none);
+  assert.deepEqual(crossed.map((p) => p.arrows), [['ad', 'cb']]);
+  assert.deepEqual(checkArrows(x, [{ id: 'ab', from: 'a', to: 'b' }, { id: 'cd', from: 'c', to: 'd' }], none), []);
+  // a node in the way, forced through by sides that leave no other route
+  const through = checkArrows([...x, { id: 'n', type: 'node', x: 450, y: 380, w: 100, h: 80 }], [{ id: 'ab', from: 'a', to: 'b', fromSide: 'right', toSide: 'left' }], none);
+  assert.equal(through[0]?.through, 'n');
+
+  const lane = [frame('a', 0, 0), frame('b', 1000, 400), frame('c', 0, 1200)];
+  const [ab, cb] = resolve([{ id: 'ab', from: 'a', to: 'b' }, { id: 'cb', from: 'c', to: 'b' }], lane, none);
+  assert.ok(ab.via.x != null && cb.via.x != null && Math.abs(ab.via.x - cb.via.x) >= 8, 'two runs in one lane sit apart');
+
+  const stacked = [frame('top', 0, -1200), frame('f', 0, 0)];
+  const [up] = resolve([{ id: 'up', from: 'f#retry', to: 'top' }], stacked, (id, el) => (id === 'f' && el === 'retry' ? [16, 780, 358, 48] : null));
+  assert.equal(up.n0[1], 0, 'leaves from the side, not up through its own screen');
+
+  // a diamond: every end on one of its four points, a second arrow on a taken side moves to a free point
+  const branch = [{ id: 'q', type: 'node', shape: 'diamond', x: 0, y: 0, w: 200, h: 120 }, frame('yes', 400, -362), frame('no', 400, 400)];
+  const [yes, no] = resolve([{ id: 'y', from: 'q', to: 'yes' }, { id: 'n', from: 'q', to: 'no' }], branch, none);
+  assert.deepEqual(yes.p0, [200, 60]);
+  assert.deepEqual(no.p0, [100, 120], 'the second branch leaves from the bottom point');
+  assert.deepEqual(checkArrows(stacked, [{ id: 'up', from: 'f#retry', to: 'top' }], (id, el) => (id === 'f' && el === 'retry' ? [16, 780, 358, 48] : null)), []);
+});
+
+test('move_to_page carries a group, its members and their arrows; refuses crossing arrows and clashing ids', async () => {
+  const { call, store, project } = scratch();
+  await run(store, 'add_page', { project, id: 'other', title: 'Other' });
+  await call('add_item', { type: 'frame', id: 'a', src: 'a.html', device: 'phone', x: 0, y: 0 });
+  await call('add_item', { type: 'frame', id: 'b', src: 'b.html', device: 'phone', x: 600, y: 0 });
+  await call('add_item', { type: 'node', id: 'c', x: 0, y: 1200 });
+  await call('connect', { from: 'a', to: 'b' });
+  const { group } = await call('group_items', { ids: ['a', 'b'], title: 'Flow' });
+  await call('connect', { from: 'b', to: 'c' });
+  const files = () => JSON.stringify([store.page(project, 'flows'), store.page(project, 'other')]);
+  const before = files();
+  await assert.rejects(call('move_to_page', { ids: [group.id], to: 'other' }), /arrows would cross pages/);
+  assert.equal(files(), before, 'a refused move changes nothing');
+  await call('remove_arrow', { id: (await call('get_page', {})).arrows.find((r) => r.to === 'c').id });
+  const done = await call('move_to_page', { ids: [group.id], to: 'other', dx: 10 });
+  assert.deepEqual(done.moved.sort(), ['a', 'b', group.id].sort());
+  const [source, target] = [store.page(project, 'flows'), store.page(project, 'other')];
+  assert.deepEqual(source.items.map((i) => i.id), ['c']);
+  assert.equal(source.arrows.length, 0);
+  assert.equal(target.arrows.length, 1);
+  assert.equal(target.items.find((i) => i.id === 'a').x, 10);
+  await call('add_item', { type: 'node', id: 'a', x: 0, y: 0 });
+  await assert.rejects(call('move_to_page', { ids: ['a'], to: 'other' }), /ids already on other: a/);
+});
+
 test('arrows anchor to elements that exist, and only those', async () => {
   const { call } = scratch();
-  await call('add_item', { type: 'frame', id: 'a', src: 'a.html' });
-  await call('add_item', { type: 'frame', id: 'b', src: 'b.html' });
+  await call('add_item', { type: 'frame', id: 'a', src: 'a.html', device: 'phone' });
+  await call('add_item', { type: 'frame', id: 'b', src: 'b.html', device: 'phone' });
   const ok = await call('connect', { from: 'a#go-a', to: 'b', label: 'tap Go', tone: 'positive' });
   assert.equal(ok.arrow.from, 'a#go-a');
   await assert.rejects(call('connect', { from: 'a#nope', to: 'b' }), /no element "nope"/);
@@ -48,8 +117,8 @@ test('arrows anchor to elements that exist, and only those', async () => {
 
 test('a group wraps its members, moves them with it, and removing an item drops its arrows', async () => {
   const { call } = scratch();
-  await call('add_item', { type: 'frame', id: 'a', src: 'a.html', x: 0, y: 0 });
-  await call('add_item', { type: 'frame', id: 'b', src: 'b.html', x: 600, y: 0 });
+  await call('add_item', { type: 'frame', id: 'a', src: 'a.html', device: 'phone', x: 0, y: 0 });
+  await call('add_item', { type: 'frame', id: 'b', src: 'b.html', device: 'phone', x: 600, y: 0 });
   await call('connect', { from: 'a', to: 'b' });
   const { group } = await call('group_items', { ids: ['a', 'b'], title: 'Flow' });
   assert.ok(group.x < 0 && group.x + group.w > 600 + 390, 'group covers both frames');
@@ -62,8 +131,8 @@ test('a group wraps its members, moves them with it, and removing an item drops 
 
 test('arrange lays items in a row with an even gap; outline reads in arrow order', async () => {
   const { call } = scratch();
-  await call('add_item', { type: 'frame', id: 'a', src: 'a.html', x: 900, y: 0, description: 'First.' });
-  await call('add_item', { type: 'frame', id: 'b', src: 'b.html', x: 0, y: 0, description: 'Second.' });
+  await call('add_item', { type: 'frame', id: 'a', src: 'a.html', device: 'phone', x: 900, y: 0, description: 'First.' });
+  await call('add_item', { type: 'frame', id: 'b', src: 'b.html', device: 'phone', x: 0, y: 0, description: 'Second.' });
   await call('connect', { from: 'a', to: 'b', label: 'next' });
   const text = await call('outline', {});
   assert.ok(text.indexOf('[a]') < text.indexOf('[b]'), 'arrows decide the order, not x');
@@ -84,7 +153,7 @@ test('tokens: read, change, and refuse a value that could break the css', async 
 
 test('a table is sized by its content, edited one cell at a time, and read as a grid', async () => {
   const { call } = scratch();
-  await call('add_item', { type: 'frame', id: 'a', src: 'a.html' });
+  await call('add_item', { type: 'frame', id: 'a', src: 'a.html', device: 'phone' });
   const table = (
     await call('add_item', {
       type: 'table',
@@ -223,7 +292,7 @@ test('history: one prompt is one entry, restore goes back and can itself be undo
   const { call, store, project } = scratch();
   const read = () => readFileSync(join(store.dir(project), 'a.html'), 'utf8') + JSON.stringify(store.page(project, 'flows'));
   const origin = read();
-  await call('add_item', { type: 'frame', id: 'a', src: 'a.html' });
+  await call('add_item', { type: 'frame', id: 'a', src: 'a.html', device: 'phone' });
   await call('move_items', { ids: ['a'], dx: 40 });
   await call('update_item', { id: 'a', patch: { description: 'x' } });
   const afterTools = read();

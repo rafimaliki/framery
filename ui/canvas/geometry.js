@@ -29,6 +29,30 @@ function endRect(ref, itemsById, boxOf) {
   return { id, rect, key: box ? ref : id, element: !!box };
 }
 
+// How well a side of a box faces a point: 1 straight at it, -1 away. Sideways wins a tie by a hair.
+function facing(rect, toward, side) {
+  const [cx, cy] = centreOf(rect);
+  const len = Math.hypot(toward[0] - cx, toward[1] - cy) || 1;
+  return (NORMAL[side][0] * (toward[0] - cx) + NORMAL[side][1] * (toward[1] - cy)) / len + (NORMAL[side][0] ? 0.001 : 0);
+}
+const best = (sides, rect, toward) => sides.reduce((a, b) => (facing(rect, toward, b) > facing(rect, toward, a) ? b : a));
+
+// How far a control sits from each edge of its frame.
+const roomOf = (r, item) => ({ top: r.y - item.y, bottom: item.y + item.h - r.y - r.h, left: r.x - item.x, right: item.x + item.w - r.x - r.w });
+
+// An arrow anchored to a control leaves from the control's own side, but when that side faces into the
+// frame (a button at the bottom, the target above) the line would cross the whole screen. Then it leaves
+// from a side the control sits close to instead, the one that faces the target best.
+const NEAR_EDGE = 48;
+
+function exitSide(end, item, side, toward) {
+  if (!end.element) return side;
+  const room = roomOf(end.rect, item);
+  if (room[side] <= NEAR_EDGE) return side;
+  const near = Object.keys(room).filter((s) => room[s] <= NEAR_EDGE);
+  return near.length ? best(near, end.rect, toward) : side;
+}
+
 // Is something standing in the way of a sideways arrow: a frame between the two ends, on the same band?
 function blockedBetween(items, from, to) {
   const left = from.rect.x < to.rect.x ? from : to;
@@ -60,9 +84,25 @@ export function resolve(arrows, items, boxOf) {
     }
     ends.push({
       arrow,
-      from: { ...from, side: arrow.fromSide ?? auto0, other: centreOf(to.rect) },
-      to: { ...to, side: arrow.toSide ?? auto1, other: centreOf(from.rect) },
+      from: { ...from, side: arrow.fromSide ?? exitSide(from, byId.get(from.id), auto0, centreOf(to.rect)), other: centreOf(to.rect) },
+      to: { ...to, side: arrow.toSide ?? exitSide(to, byId.get(to.id), auto1, centreOf(from.rect)), other: centreOf(from.rect) },
     });
+  }
+
+  // A diamond touches its box only at the middle of each side: an end sits on that point, never spread
+  // along the side, and an arrow wanting a side another already has takes the free point that faces its
+  // other end best ("yes" out the right, "no" out the bottom).
+  const taken = new Map();
+  for (const { arrow, from, to } of ends) {
+    for (const [end, forced] of [[from, arrow.fromSide], [to, arrow.toSide]]) {
+      if (end.element || byId.get(end.id)?.shape !== 'diamond') continue;
+      if (!taken.has(end.id)) taken.set(end.id, new Set());
+      const used = taken.get(end.id);
+      const free = Object.keys(NORMAL).filter((s) => !used.has(s));
+      if (!forced && used.has(end.side) && free.length) end.side = best(free, end.rect, end.other);
+      used.add(end.side);
+      end.point = true;
+    }
   }
 
   // Arrows that share a side of the same box fan out along it instead of stacking, ordered by where
@@ -70,6 +110,7 @@ export function resolve(arrows, items, boxOf) {
   const shared = new Map();
   for (const entry of ends) {
     for (const end of [entry.from, entry.to]) {
+      if (end.point) continue;
       const k = `${end.key}|${end.side}`;
       if (!shared.has(k)) shared.set(k, []);
       shared.get(k).push(end);
@@ -83,13 +124,73 @@ export function resolve(arrows, items, boxOf) {
     });
   }
 
-  return ends.map(({ arrow, from, to }) => {
-    const p0 = pointOn(from.rect, from.side, from.t);
-    const p1 = pointOn(to.rect, to.side, to.t);
-    const n0 = NORMAL[from.side];
-    const n1 = NORMAL[to.side];
-    return { id: arrow.id, label: arrow.label ?? '', tone: arrow.tone ?? 'neutral', p0, n0, p1, n1, anchored: from.element, via: channel(items, p0, n0, p1, n1) };
-  });
+  return spread(
+    ends.map(({ arrow, from, to }) => {
+      const p0 = pointOn(from.rect, from.side, from.t);
+      const p1 = pointOn(to.rect, to.side, to.t);
+      const n0 = NORMAL[from.side];
+      const n1 = NORMAL[to.side];
+      // an anchored end's first run must clear its own frame, not stop just past the control
+      const clear = (end) => (end.element ? Math.max(0, roomOf(end.rect, byId.get(end.id))[end.side]) : 0);
+      return { id: arrow.id, label: arrow.label ?? '', tone: arrow.tone ?? 'neutral', p0, n0, p1, n1, anchored: from.element, via: { ...channel(items, p0, n0, p1, n1), clear0: clear(from), clear1: clear(to) } };
+    }),
+  );
+}
+
+// Do two segments meet? Parallel runs closer than NEAR that share a stretch count (they draw as one line);
+// otherwise only a true crossing does, not a touch at an end.
+const NEAR = 4;
+export function meets([a, b], [c, d]) {
+  for (const k of [0, 1]) {
+    if (a[k] === b[k] && c[k] === d[k]) {
+      const j = 1 - k;
+      const overlap = Math.min(Math.max(a[j], b[j]), Math.max(c[j], d[j])) - Math.max(Math.min(a[j], b[j]), Math.min(c[j], d[j]));
+      return Math.abs(a[k] - c[k]) < NEAR && overlap > 1;
+    }
+  }
+  const side = (o, p, q) => Math.sign((p[0] - o[0]) * (q[1] - o[1]) - (p[1] - o[1]) * (q[0] - o[0]));
+  return side(c, d, a) * side(c, d, b) < 0 && side(a, b, c) * side(a, b, d) < 0;
+}
+
+export const segments = (points) => points.slice(1).map((p, i) => [points[i], p]);
+
+// Arrows whose middle runs land on the same lane would draw on top of each other: spread them across
+// it, in the order that crosses least (tried in full for a few, by source position beyond that).
+const LANE_STEP = 16;
+
+function permutations(list) {
+  if (list.length < 2) return [list];
+  return list.flatMap((x, i) => permutations([...list.slice(0, i), ...list.slice(i + 1)]).map((rest) => [x, ...rest]));
+}
+
+function spread(routes) {
+  for (const axis of ['x', 'y']) {
+    const i = axis === 'x' ? 0 : 1;
+    const model = (r, at) => (axis === 'x' ? [r.p0, [at, r.p0[1]], [at, r.p1[1]], r.p1] : [r.p0, [r.p0[0], at], [r.p1[0], at], r.p1]);
+    const lanes = new Map();
+    for (const r of routes) {
+      if (r.via[axis] == null) continue;
+      const k = Math.round(r.via[axis]);
+      if (!lanes.has(k)) lanes.set(k, []);
+      lanes.get(k).push(r);
+    }
+    for (const group of lanes.values()) {
+      if (group.length < 2) continue;
+      const centre = group[0].via[axis];
+      const step = Math.min(LANE_STEP, Math.min(...group.map((r) => r.via.room)) / (group.length + 1));
+      const at = (k) => centre + (k - (group.length - 1) / 2) * step;
+      const cost = (order) => {
+        const lines = order.map((r, k) => segments(model(r, at(k))));
+        let n = 0;
+        for (let a = 0; a < lines.length; a++) for (let b = a + 1; b < lines.length; b++) n += lines[a].filter((s) => lines[b].some((t) => meets(s, t))).length;
+        return n;
+      };
+      const byStart = [...group].sort((a, b) => a.p0[1 - i] - b.p0[1 - i]);
+      const order = group.length > 5 ? byStart : permutations(byStart).reduce((best, o) => (cost(o) < cost(best) ? o : best));
+      order.forEach((r, k) => (r.via = { ...r.via, [axis]: at(k) }));
+    }
+  }
+  return routes;
 }
 
 // The free lanes along one axis between lo and hi: spans no frame, table or node covers anywhere along
@@ -135,6 +236,6 @@ export function channel(items, p0, n0, p1, n1) {
   const gaps = lanes(items, axis, lo, hi, Math.min(p0[j], p1[j]), Math.max(p0[j], p1[j]));
   if (!gaps.length) return {};
   const mid = (p0[i] + p1[i]) / 2;
-  const at = gaps.map(([x, y]) => (x + y) / 2).sort((u, v) => Math.abs(u - mid) - Math.abs(v - mid))[0];
-  return { [axis]: at };
+  const [x, y] = gaps.sort((u, v) => Math.abs((u[0] + u[1]) / 2 - mid) - Math.abs((v[0] + v[1]) / 2 - mid))[0];
+  return { [axis]: (x + y) / 2, room: y - x };
 }

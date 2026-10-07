@@ -39,12 +39,14 @@ All writes go through the tools. They validate, keep ids stable, and the open st
 
 | Want | Tool |
 |---|---|
-| a screen on the canvas | `add_item {type:"frame", src:"flows/x/y.html", device:"phone"|"tablet"|"desktop"|custom with w,h, title, step, description, parent}` |
+| a screen on the canvas | `add_item {type:"frame", src:"flows/x/y.html", device, title, step, description, parent}`; `device` is required: `"phone"`\|`"tablet"`\|`"desktop"` for a real screen of that device only, `"document"` (960 wide, auto height, or give `w`,`h`) for components, specs, galleries, token sheets |
 | a container | `group_items {ids, title, description}` (sized to its members) |
 | a flowchart shape | `add_item {type:"node", shape:"diamond"|"process"|"terminal", title}` |
 | a connection | `connect {from, to, label, tone:"positive"|"negative"|"neutral"}` |
 | anchor to an element | `connect {from:"frame-id#element-id", ...}` — the element needs `id="..."` or `data-anchor="..."` in the frame's html; `list_anchors {frame}` shows what exists |
 | place things | `move_items {ids, dx, dy}`, `arrange {ids, direction:"row"|"column", gap}`, or give `x`,`y` on add |
+| move to another page | `move_to_page {page, ids, to, dx?, dy?}`: a group takes its members; arrows between moved items go along, an arrow that would cross pages is refused |
+| arrows draw clean | `check_arrows {page}`: crossings, overlaps, arrows through items, labels covering items or each other; must be empty |
 | change anything | `update_item {id, patch}`, `update_arrow {id, patch}`, `remove_item`, `remove_arrow` |
 | a new page | `add_page {id, title}` |
 | tokens | `set_token {name, value}` |
@@ -63,6 +65,13 @@ Conventions that keep the board readable:
   (empty, loading, error) are not transitions: do not chain them. Connect a state to the control that
   reaches it ("tap Try again" from the error's retry button to the loading state).
 - **Branches are diamonds.** A question in the diamond ("Amount entered?"), one labelled arrow per answer.
+  Each arrow uses one of the diamond's four points: put the main answer's target in line with it and the
+  other below, so "yes" leaves sideways and "no" leaves from the bottom.
+- **No arrow crosses another or cuts through an item, and no label covers one.** After placing a flow's items and arrows, run
+  `check_arrows {page}` (`render_frames` first if it lists `unmeasured` frames: anchors change the routes)
+  and fix every problem before you finish. Move items first: the happy path in one row, a state or a
+  failure directly under the screen it belongs to, and nothing standing between two connected items.
+  Only when moving cannot fix it, set `fromSide`/`toSide` with `update_arrow`. Never leave a crossing.
 - **A group is one flow.** Frames inside it read left to right; its description holds the flow's rules.
 - **Descriptions are short and specific.** What the frame is, then the rule it must keep. No restating
   what the picture shows.
@@ -87,7 +96,7 @@ props) and every frame follows.
 | make repeated markup a component | `find_candidates` lists repeats; `promote_component {id, tag, block, variants, flags}` writes the definition and converts the copies it can draw exactly, reporting the rest |
 | convert what is left | `convert_copies {id}` after the definition learned a prop |
 | back to plain markup | `detach_component {file, component?}`, `remove_component {id}` |
-| a page of all its variants | `component_sheet {id}`, then `add_item` the file as a frame |
+| a page of all its variants | `component_sheet {id}`, then `add_item` the file as a frame with `device:"document"` |
 | a better name | `rename_component {id, to, title?}`: the registry, the template and every instance. Name components for what they are (a bottom navigation bar is not a tab control) |
 
 Props are the only thing an instance may change (`anchor`, `id` and `style` are always allowed: they become
