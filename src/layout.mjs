@@ -108,7 +108,9 @@ export function layoutFlow(page, ids, { gap = 140, rowGap = 160, x, y } = {}) {
   // the main row: from the entry, the way out that leads furthest, the happier one on a tie
   // ponytail: plain depth-first search, exponential on a dense graph; flows are a few dozen items
   const reach = (id, seen) => Math.max(0, ...edges.filter((e) => e.from === id && !seen.has(e.to)).map((e) => 1 + reach(e.to, new Set([...seen, e.to]))));
-  const entry = [...list].sort((a, b) => Number(edges.some((e) => e.to === a.id)) - Number(edges.some((e) => e.to === b.id)) || reading(a, b))[0];
+  // the entry: no arrows in and some out (an item with no arrows at all is not a start), top-left first
+  const score = (i) => Number(edges.some((e) => e.to === i.id)) * 2 + Number(!edges.some((e) => e.from === i.id));
+  const entry = [...list].sort((a, b) => score(a) - score(b) || reading(a, b))[0];
   const main = [entry.id];
   for (;;) {
     const seen = new Set(main);
