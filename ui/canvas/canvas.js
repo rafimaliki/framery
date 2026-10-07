@@ -31,7 +31,8 @@ export function createCanvas({ view: viewEl, world: worldEl, arrows: svg }, deps
   let selectedComponent = null; // outlined now; redrawn when a re-render moves things under it
   let inFrame = null; // the frame that is selected, or holds the selected component: a click inside it goes deeper
 
-  const ctx = { project: deps.project, rev: deps.rev, frameRev: () => frameRev };
+  const states = new Map(); // frame id -> the state it shows, when not its default
+  const ctx = { project: deps.project, rev: deps.rev, frameRev: () => frameRev, stateOf: (id) => states.get(id) ?? null };
   const world = createWorld(worldEl, renderers, ctx);
   const arrows = createArrows(svg, { animated: deps.animated, lineStyle: deps.lineStyle });
   const anchors = createAnchors({ project: deps.project, rev: deps.rev });
@@ -213,6 +214,7 @@ export function createCanvas({ view: viewEl, world: worldEl, arrows: svg }, deps
       page = next;
       if (fresh) {
         key = viewKey;
+        states.clear();
         world.clear();
       }
       world.setItems(page.items);
@@ -249,6 +251,14 @@ export function createCanvas({ view: viewEl, world: worldEl, arrows: svg }, deps
       if (!shouldFocus || !sel || sel.kind === 'component') return;
       if (sel.kind === 'item') focus(sel.id);
       else focusArrow(sel.id);
+    },
+
+    stateOf: ctx.stateOf,
+    // Show a frame in one of its states (null: its default).
+    setState(id, state) {
+      if (state) states.set(id, state);
+      else states.delete(id);
+      world.restate(id);
     },
 
     // The detail panel was closed: the selection stays, the camera no longer leaves room for the panel.

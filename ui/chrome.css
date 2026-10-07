@@ -295,9 +295,15 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .player__frame { position: absolute; top: 0; left: 0; border: 0; transform-origin: 0 0; background: var(--frame-paper); }
 .player__ways { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; padding: 10px; }
 .player__ways:empty { display: none; }
+.player__states { display: flex; justify-content: center; padding: 10px 10px 0; }
+.player__states:empty { display: none; }
+.player__states .seg { width: min(420px, 100%); }
 .player__ask { display: grid; justify-items: center; gap: 12px; padding: 24px; }
 .player__ask > p:first-child { margin: 0 0 6px; font-size: 20px; font-weight: 700; }
 .player__way { border: 1px solid var(--edge); border-radius: 999px; padding: 8px 16px; }
 .player__way--positive { color: var(--pos); border-color: var(--pos); }
 .player__way--negative { color: var(--neg); border-color: var(--neg); }
 .player__end { color: var(--ink-soft); }
+
+/* a frame's states (inspector): the canvas shows the one chosen */
+.inspector__states { display: grid; gap: 6px; margin: 4px 0 10px; }

@@ -169,8 +169,22 @@ async function shoot(cdp, session, file, frame) {
   const measured = result.value;
   const height = frame.autoHeight && measured.height > 0 ? measured.height : frame.h;
   if (height !== probe) await send('Emulation.setDeviceMetricsOverride', { width: frame.w, height, deviceScaleFactor: 1, mobile: false });
-  const { data } = await send('Page.captureScreenshot', { format: 'webp', quality: 72, clip: { x: 0, y: 0, width: frame.w, height, scale: SCALE } });
-  return { height, anchors: measured.anchors, parts: measured.parts, contrast: measured.contrast, image: Buffer.from(data, 'base64') };
+  const picture = async () => Buffer.from((await send('Page.captureScreenshot', { format: 'webp', quality: 72, clip: { x: 0, y: 0, width: frame.w, height, scale: SCALE } })).data, 'base64');
+  const image = await picture();
+  // Each other state the page draws (:root[data-state="..."]) is a picture of its own. A control only one
+  // state has still anchors arrows, so its box joins the others; low contrast says which state it is in.
+  const states = {};
+  for (const state of frame.states ?? []) {
+    const { result: inState } = await send('Runtime.evaluate', {
+      expression: `(async () => { document.documentElement.dataset.state = ${JSON.stringify(state)}; await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))); return ${MEASURE}; })()`,
+      awaitPromise: true,
+      returnByValue: true,
+    });
+    for (const [key, box] of Object.entries(inState.value.anchors)) measured.anchors[key] ??= box;
+    measured.contrast.push(...inState.value.contrast.map((c) => ({ ...c, state })));
+    states[state] = await picture();
+  }
+  return { height, anchors: measured.anchors, parts: measured.parts, contrast: measured.contrast, image, states };
 }
 
 const depsMtime = (store, project) => {
@@ -195,7 +209,7 @@ export async function render(store, args = {}, onProgress = () => {}) {
       const meta = store.inside(project, `.cache/anchors/${item.id}.json`);
       const known = existsSync(meta) ? JSON.parse(readFileSync(meta, 'utf8')) : null;
       const srcTime = store.mtime(store.inside(project, item.src));
-      const fresh = known && known.contrast && known.src === srcTime && known.deps === deps && known.w === item.w && known.h === item.h && existsSync(store.inside(project, `.cache/frames/${item.id}.webp`));
+      const fresh = known && known.contrast && String(known.states ?? []) === String(item.states ?? []) && known.src === srcTime && known.deps === deps && known.w === item.w && known.h === item.h && existsSync(store.inside(project, `.cache/frames/${item.id}.webp`));
       if (fresh && !args.force) skipped++;
       else todo.push({ page: pageName, item, srcTime });
     }
@@ -222,8 +236,9 @@ export async function render(store, args = {}, onProgress = () => {}) {
         try {
           const out = await shoot(cdp, sessionId, store.inside(project, item.src), item);
           writeFileSync(store.inside(project, `.cache/frames/${item.id}.webp`), out.image);
+          for (const [state, image] of Object.entries(out.states)) writeFileSync(store.inside(project, `.cache/frames/${item.id}~${state}.webp`), image);
           if (out.height !== item.h) resized.push({ page, id: item.id, from: item.h, to: out.height });
-          writeFileSync(store.inside(project, `.cache/anchors/${item.id}.json`), JSON.stringify({ src: srcTime, deps, w: item.w, h: out.height, anchors: out.anchors, parts: out.parts, contrast: out.contrast }));
+          writeFileSync(store.inside(project, `.cache/anchors/${item.id}.json`), JSON.stringify({ src: srcTime, deps, w: item.w, h: out.height, anchors: out.anchors, parts: out.parts, contrast: out.contrast, states: item.states ?? [] }));
         } catch (error) {
           failed.push({ id: item.id, error: error.message });
         }

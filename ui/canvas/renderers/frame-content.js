@@ -30,7 +30,7 @@ export function createContent(el, item, ctx) {
       missing = h('div', { class: 'ph' }, item.step ?? '', h('small', null, item.title ?? item.id));
       body.append(missing);
     });
-    image.src = api.preview(ctx.project(), item.id, ctx.rev());
+    image.src = api.preview(ctx.project(), item.id, ctx.rev(), ctx.stateOf(item.id));
     body.prepend(image);
   }
 
@@ -44,11 +44,21 @@ export function createContent(el, item, ctx) {
     if (frame) return;
     frame = h('iframe', { tabindex: '-1', scrolling: 'no', 'aria-hidden': 'true', title: item.title ?? item.id });
     frame.addEventListener('load', () => {
+      paintState();
       frame?.classList.add('ready');
       body.classList.add('live');
     });
     frame.src = api.file(ctx.project(), item.src, ctx.frameRev());
     body.append(frame);
+  }
+
+  // the state the page draws: :root[data-state] in the live page, the matching picture otherwise
+  function paintState() {
+    const root = frame?.contentDocument?.documentElement;
+    if (!root) return;
+    const state = ctx.stateOf(item.id);
+    if (state) root.dataset.state = state;
+    else delete root.dataset.state;
   }
 
   function hideLive() {
@@ -78,6 +88,11 @@ export function createContent(el, item, ctx) {
       if (mode === 'flat') return;
       hideImage();
       showImage();
+    },
+    // Another state was chosen: the live page switches at once, the picture is fetched again.
+    restate() {
+      paintState();
+      if (image) image.src = api.preview(ctx.project(), item.id, ctx.rev(), ctx.stateOf(item.id));
     },
     // The page changed on disk: reload the live iframe if it is showing.
     reload() {

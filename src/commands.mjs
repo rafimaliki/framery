@@ -15,7 +15,7 @@ const TYPES = ['frame', 'group', 'node', 'table'];
 const SHAPES = { terminal: [160, 56], process: [180, 72], diamond: [200, 120] };
 const TONES = ['neutral', 'positive', 'negative'];
 const SIDES = ['top', 'right', 'bottom', 'left'];
-const ITEM_KEYS = ['id', 'type', 'x', 'y', 'w', 'h', 'title', 'step', 'description', 'src', 'device', 'shape', 'parent', 'autoHeight', 'columns', 'rows', 'marks'];
+const ITEM_KEYS = ['id', 'type', 'x', 'y', 'w', 'h', 'title', 'step', 'description', 'src', 'device', 'shape', 'parent', 'autoHeight', 'states', 'columns', 'rows', 'marks'];
 const ARROW_KEYS = ['id', 'from', 'to', 'label', 'tone', 'fromSide', 'toSide'];
 
 // Where the studio runs: the address the server wrote when it started, while that process is alive.
@@ -47,6 +47,12 @@ export function anchorsOf(store, project, frame) {
 }
 
 function validate(store, project, page) {
+  for (const item of page.items) {
+    if (item.states === undefined) continue;
+    if (item.type !== 'frame' || !Array.isArray(item.states)) fail(`${item.id}: states is a list of names, frames only`);
+    for (const state of item.states) if (checkName('state', state) === 'default') fail(`${item.id}: "default" is the state with no name; list only the others`);
+    if (new Set(item.states).size !== item.states.length) fail(`${item.id}: a state is listed twice`);
+  }
   const ids = new Set();
   for (const item of page.items) {
     if (ids.has(item.id)) fail(`duplicate id ${item.id}`);
@@ -172,6 +178,7 @@ const itemProps = {
   shape: t.one(Object.keys(SHAPES), 'node only'),
   parent: t.str('id of the group this item sits in'),
   autoHeight: t.bool('frame only: render_frames re-measures its height from the page'),
+  states: { type: 'array', items: { type: 'string' }, description: 'frame only: the other states one page draws, e.g. ["empty", "error"]; the page styles each under :root[data-state="empty"], the default has none' },
   columns: { type: 'array', items: { type: 'object' }, description: 'table only: [{id, title, note?}]; the width follows the count' },
   rows: { type: 'array', items: { type: 'object' }, description: 'table only: [{id, title, link?: "page/item", cells: {columnId: text}}]; the height follows the count' },
   marks: { type: 'object', description: `table only: cell text drawn as a pill, e.g. {"built": "positive"}; styles ${tables.MARK_STYLES.join(', ')}` },
@@ -571,7 +578,7 @@ export const commands = {
         if (!found) unmeasured.add(frame.id);
         const said = new Set(); // the same text in the same colours, said once per frame
         for (const c of found ?? []) {
-          const problem = `"${c.text}" is ${c.ratio}:1 (${c.fg} on ${c.bg}), needs ${c.need}:1`;
+          const problem = `"${c.text}"${c.state ? ` (in state ${c.state})` : ''} is ${c.ratio}:1 (${c.fg} on ${c.bg}), needs ${c.need}:1`;
           if (!said.has(problem)) said.add(problem) && problems.push({ item: frame.id, problem });
         }
       }
