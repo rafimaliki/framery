@@ -13,6 +13,7 @@ import { createLayers } from './panels/layers.js';
 import { createHistory } from './panels/history.js';
 import { createSettingsMenu } from './panels/settings-menu.js';
 import { createSidebar } from './panels/sidebar.js';
+import { createFinder } from './panels/finder.js';
 import { installShortcuts } from './panels/shortcuts.js';
 import { createZoombar } from './panels/zoombar.js';
 
@@ -62,7 +63,8 @@ const inspector = createInspector($('inspector'), {
 });
 createHistory({ button: $('history-btn'), panel: $('history') }, { project: () => state.project, list: (project) => api.command('history', { project }), restore: (project, n) => api.command('restore', { project, n }) });
 createSettingsMenu({ button: $('settings-btn'), panel: $('settings') }, settings);
-installShortcuts({ canvas, toggleSidebar: () => sidebar.toggle(), clearSelection: () => session.select(null), enabled: () => !!state.page });
+const finder = createFinder({ project: () => state.project, pages: () => state.info?.pages ?? [], onGo: (page, id) => navigate({ project: state.project, page, id }) });
+installShortcuts({ canvas, toggleSidebar: () => sidebar.toggle(), clearSelection: () => session.select(null), enabled: () => !!state.page, find: () => finder.open() });
 
 // The address names a frame: a component is addressed by the frame it sits in.
 const onCanvas = (sel) => (sel?.kind === 'component' ? { kind: 'item', id: sel.frame } : sel);
