@@ -142,7 +142,7 @@ generated component regions and previews follow. Do not restore on your own init
 
 `npx framery cmd <tool> '<json>'` runs any tool from a shell and prints the result;
 `npx framery tools` lists them with descriptions. Start the studio with `npx framery`
-(http://127.0.0.1:4173).
+(http://127.0.0.1:4173, or the next free port: `link` knows which).
 
 ## Updating framery
 

@@ -16,6 +16,8 @@ import { checkArrows } from '../src/arrow-check.mjs';
 import { resolve } from '../ui/canvas/geometry.js';
 import { init } from '../src/init.mjs';
 import { Store } from '../src/store.mjs';
+import { serve } from '../src/server.mjs';
+import { createServer } from 'node:net';
 
 const PKG = fileURLToPath(new URL('..', import.meta.url));
 
@@ -246,6 +248,20 @@ test('export: a frame as png, pdf and svg, a group through the studio, and a bad
 test('paths cannot leave the project', async () => {
   const { call } = scratch();
   await assert.rejects(call('add_item', { type: 'frame', src: '../../etc/passwd' }), /leaves the project|no file/);
+});
+
+test('the studio takes the next free port unless one was asked for, and link follows it', async () => {
+  const { store, project } = scratch();
+  const listening = (server) => new Promise((ok, no) => server.once('listening', ok).once('error', no));
+  const busy = createServer().listen(0, '127.0.0.1');
+  await listening(busy);
+  const taken = busy.address().port;
+  const studio = serve({ root: store.root, port: taken, autoRender: false, quiet: true });
+  await new Promise((ok) => studio.once('listening', ok)); // the busy port's error is the server's own to handle
+  assert.equal(studio.address().port, taken + 1);
+  assert.match(await run(store, 'link', { project, page: 'flows' }), new RegExp(`:${taken + 1}/#/`));
+  studio.close();
+  busy.close();
 });
 
 test('MCP: initialize, list tools, call one, report an error as isError', async () => {
