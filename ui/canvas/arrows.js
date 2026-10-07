@@ -3,7 +3,7 @@
 // come from geometry.js; this module owns the SVG and redraws only what is on screen.
 
 import { resolve } from './geometry.js';
-import { route } from './routes.js';
+import { PILL_H, labelAt, pillWidth, route } from './routes.js';
 
 const NS = 'http://www.w3.org/2000/svg';
 const LABELS_FROM = 0.22; // below this zoom the labels would only pile up, so they wait
@@ -20,6 +20,7 @@ export function createArrows(svg, { animated, lineStyle }) {
   const layer = el('g');
   svg.append(layer);
   let drawn = []; // { geometry, nodes }
+  let solids = []; // the items a label should not cover
   let anchor = null; // the view the layer was last fully drawn at
   let selected = null;
   let only = null; // a Set of arrow ids when a frame or group is focused: the rest stay hidden
@@ -38,8 +39,8 @@ export function createArrows(svg, { animated, lineStyle }) {
     };
     g.append(nodes.hit, nodes.ln, nodes.hd, nodes.dot);
     if (geometry.label) {
-      const width = geometry.label.length * 6.2 + 18;
-      const pill = el('rect', { class: 'pill', x: -width / 2, y: -10, width, height: 20, rx: 10 });
+      const width = pillWidth(geometry.label);
+      const pill = el('rect', { class: 'pill', x: -width / 2, y: -PILL_H / 2, width, height: PILL_H, rx: PILL_H / 2 });
       const text = el('text');
       text.textContent = geometry.label;
       nodes.lab = el('g', { class: 'lab' });
@@ -54,8 +55,14 @@ export function createArrows(svg, { animated, lineStyle }) {
     anchor = { x: view.x, y: view.y, s: view.s };
     layer.removeAttribute('transform');
     const to = ([x, y]) => [x * view.s + view.x, y * view.s + view.y];
+    const rects = solids.map((i) => ({ x: i.x * view.s + view.x, y: i.y * view.s + view.y, w: i.w * view.s, h: i.h * view.s }));
     for (const { geometry: a, nodes } of drawn) {
-      const via = { x: a.via.x == null ? null : a.via.x * view.s + view.x, y: a.via.y == null ? null : a.via.y * view.s + view.y };
+      const via = {
+        x: a.via.x == null ? null : a.via.x * view.s + view.x,
+        y: a.via.y == null ? null : a.via.y * view.s + view.y,
+        clear0: (a.via.clear0 ?? 0) * view.s,
+        clear1: (a.via.clear1 ?? 0) * view.s,
+      };
       const shape = route(lineStyle(), to(a.p0), a.n0, to(a.p1), a.n1, via);
       const visible = (!only || only.has(a.id)) && shape.box.x1 > -40 && shape.box.x0 < size.w + 40 && shape.box.y1 > -40 && shape.box.y0 < size.h + 40;
       nodes.g.style.display = visible ? '' : 'none';
@@ -70,7 +77,10 @@ export function createArrows(svg, { animated, lineStyle }) {
         nodes.dot.style.display = view.s < DOTS_FROM ? 'none' : ''; // far out, the circles would be bigger than the frames
       }
       if (nodes.lab) nodes.lab.style.display = view.s < LABELS_FROM ? 'none' : '';
-      nodes.lab?.setAttribute('transform', `translate(${shape.mid[0].toFixed(1)} ${shape.mid[1].toFixed(1)})`);
+      if (nodes.lab) {
+        const [x, y] = shape.kind === 'bezier' ? shape.mid : labelAt(shape.points, shape.mid, pillWidth(a.label), rects);
+        nodes.lab.setAttribute('transform', `translate(${x.toFixed(1)} ${y.toFixed(1)})`);
+      }
     }
   }
 
@@ -79,6 +89,7 @@ export function createArrows(svg, { animated, lineStyle }) {
     setData(items, arrows, boxOf) {
       layer.replaceChildren();
       drawn = resolve(arrows, items, boxOf).map(build);
+      solids = items.filter((i) => ['frame', 'table', 'node'].includes(i.type));
       for (const { nodes } of drawn) layer.append(nodes.g);
       anchor = null;
     },

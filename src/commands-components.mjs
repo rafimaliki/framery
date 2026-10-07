@@ -172,7 +172,7 @@ export const componentCommands = {
   ),
 
   component_sheet: cmd(
-    'Write the page that shows a component in all its variants (one instance per enum value, or one when it has none) as components/lib-<id>.html, made of instances, so it updates with the definition. Put it on the design-system page with add_item.',
+    'Write the page that shows a component in all its variants (one instance per enum value, or one when it has none) as components/lib-<id>.html, made of instances, so it updates with the definition. Put it on the design-system page with add_item, device document.',
     { project, id: t.str('component id') },
     ['id'],
     (store, a) => {

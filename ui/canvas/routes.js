@@ -35,59 +35,58 @@ function curved(p0, n0, p1, n1, head) {
 }
 
 // Straight segments that turn at right angles: leave the side, turn, run, turn, arrive square-on.
+// via.clear0 / via.clear1: how far an end must run before it may turn, past the stub (an anchored control
+// clears its own frame first).
 function elbow(p0, n0, p1, n1, head, via = {}) {
   // The turn distance shrinks with the arrow, so a zoomed-out arrow keeps its shape instead of looping.
   const STUB = Math.max(4, Math.min(MAX_STUB, Math.hypot(p1[0] - p0[0], p1[1] - p0[1]) * 0.25));
+  const c0 = via.clear0 ?? 0;
+  const c1 = via.clear1 ?? 0;
+  const S0 = STUB + c0;
+  const S1 = STUB + c1;
   const end = [p1[0] + n1[0] * head, p1[1] + n1[1] * head];
   const h0 = n0[0] !== 0;
   const h1 = n1[0] !== 0;
-  const a = [p0[0] + n0[0] * STUB, p0[1] + n0[1] * STUB];
-  const b = [p1[0] + n1[0] * STUB, p1[1] + n1[1] * STUB];
+  const a = [p0[0] + n0[0] * S0, p0[1] + n0[1] * S0];
+  const b = [p1[0] + n1[0] * S1, p1[1] + n1[1] * S1];
   let points;
 
-  if (h0 && h1) {
-    const opposed = n0[0] === -n1[0];
-    const forward = n0[0] * (p1[0] - p0[0]) > STUB * 2;
+  if (h0 === h1) {
+    // both ends on the same axis: k is that axis, j the other
+    const k = h0 ? 0 : 1;
+    const j = 1 - k;
+    const at = (u, v) => (k === 0 ? [u, v] : [v, u]); // a point from (along k, along j)
+    const n = n0[k];
+    const opposed = n0[k] === -n1[k];
+    const forward = n * (p1[k] - p0[k]) > S0 + S1;
     if (opposed && forward) {
-      const x = lane(via.x, p0[0], p1[0], n0[0], STUB) ?? (p0[0] + p1[0]) / 2;
-      points = [p0, [x, p0[1]], [x, p1[1]], end];
+      const mid = Math.min(Math.max((p0[k] + p1[k]) / 2, Math.min(a[k], b[k])), Math.max(a[k], b[k]));
+      const u = lane(via[k === 0 ? 'x' : 'y'], p0[k], p1[k], n, S0, S1) ?? mid;
+      points = [p0, at(u, p0[j]), at(u, p1[j]), end];
     } else if (!opposed) {
-      const x = n0[0] > 0 ? Math.max(p0[0], p1[0]) + STUB : Math.min(p0[0], p1[0]) - STUB;
-      points = [p0, [x, p0[1]], [x, p1[1]], end];
+      const u = n > 0 ? Math.max(a[k], b[k]) : Math.min(a[k], b[k]);
+      points = [p0, at(u, p0[j]), at(u, p1[j]), end];
     } else {
-      const y = Math.abs(p0[1] - p1[1]) < STUB * 2 ? Math.min(p0[1], p1[1]) - STUB * 1.5 : (p0[1] + p1[1]) / 2;
-      points = [p0, a, [a[0], y], [b[0], y], b, end];
-    }
-  } else if (!h0 && !h1) {
-    const opposed = n0[1] === -n1[1];
-    const forward = n0[1] * (p1[1] - p0[1]) > STUB * 2;
-    if (opposed && forward) {
-      const y = lane(via.y, p0[1], p1[1], n0[1], STUB) ?? (p0[1] + p1[1]) / 2;
-      points = [p0, [p0[0], y], [p1[0], y], end];
-    } else if (!opposed) {
-      const y = n0[1] > 0 ? Math.max(p0[1], p1[1]) + STUB : Math.min(p0[1], p1[1]) - STUB;
-      points = [p0, [p0[0], y], [p1[0], y], end];
-    } else {
-      const x = Math.abs(p0[0] - p1[0]) < STUB * 2 ? Math.min(p0[0], p1[0]) - STUB * 1.5 : (p0[0] + p1[0]) / 2;
-      points = [p0, a, [x, a[1]], [x, b[1]], b, end];
+      const v = Math.abs(p0[j] - p1[j]) < STUB * 2 ? Math.min(p0[j], p1[j]) - STUB * 1.5 : (p0[j] + p1[j]) / 2;
+      points = [p0, a, at(a[k], v), at(b[k], v), b, end];
     }
   } else if (h0) {
     // leaves sideways, arrives from above or below: one corner when it is in front of both
     const corner = [p1[0], p0[1]];
-    const ok = n0[0] * (p1[0] - p0[0]) > STUB * 0.5 && n1[1] * (p0[1] - p1[1]) > STUB * 0.5;
+    const ok = n0[0] * (p1[0] - p0[0]) > c0 + STUB * 0.5 && n1[1] * (p0[1] - p1[1]) > c1 + STUB * 0.5;
     points = ok ? [p0, corner, end] : [p0, a, [a[0], b[1]], b, end];
   } else {
     const corner = [p0[0], p1[1]];
-    const ok = n0[1] * (p1[1] - p0[1]) > STUB * 0.5 && n1[0] * (p0[0] - p1[0]) > STUB * 0.5;
+    const ok = n0[1] * (p1[1] - p0[1]) > c0 + STUB * 0.5 && n1[0] * (p0[0] - p1[0]) > c1 + STUB * 0.5;
     points = ok ? [p0, corner, end] : [p0, a, [b[0], a[1]], b, end];
   }
   return { kind: 'poly', points: points.filter((p, i) => i === 0 || p[0] !== points[i - 1][0] || p[1] !== points[i - 1][1]), end, dir: [-n1[0], -n1[1]] };
 }
 
 // The preferred lane for the middle run (screen px), used only if it lies clear of both stubs.
-function lane(at, from, to, n, stub) {
+function lane(at, from, to, n, stub0, stub1) {
   if (at == null) return null;
-  return n * (at - from) > stub && n * (to - at) > stub ? at : null;
+  return n * (at - from) > stub0 && n * (to - at) > stub1 ? at : null;
 }
 
 export const routers = { straight, curved, elbow };
@@ -119,6 +118,23 @@ function middle(points) {
   return points[0];
 }
 
+// A label's pill, in screen px: it keeps this size at every zoom.
+export const PILL_H = 20;
+export const pillWidth = (label) => label.length * 6.2 + 18;
+
+// Where a label sits: the middle of the line, unless its pill would cover one of the rects (items, in
+// the same units as the points); then the middle of the longest run where it covers none.
+export function labelAt(points, mid, width, rects) {
+  const clear = ([x, y]) => !rects.some((r) => x + width / 2 > r.x && x - width / 2 < r.x + r.w && y + PILL_H / 2 > r.y && y - PILL_H / 2 < r.y + r.h);
+  if (clear(mid)) return mid;
+  const runs = points
+    .slice(1)
+    .map((p, i) => [points[i], p])
+    .sort((u, v) => Math.hypot(v[1][0] - v[0][0], v[1][1] - v[0][1]) - Math.hypot(u[1][0] - u[0][0], u[1][1] - u[0][1]))
+    .map(([u, v]) => [(u[0] + v[0]) / 2, (u[1] + v[1]) / 2]);
+  return runs.find(clear) ?? mid;
+}
+
 export function route(style, p0, n0, p1, n1, via) {
   const span = Math.hypot(p1[0] - p0[0], p1[1] - p0[1]);
   const head = Math.min(8, span * 0.35); // a short arrow keeps a proportionate head
@@ -145,6 +161,8 @@ export function route(style, p0, n0, p1, n1, via) {
     d,
     head: `${f(p1[0])},${f(p1[1])} ${f(end[0] + side[0] * wing)},${f(end[1] + side[1] * wing)} ${f(end[0] - side[0] * wing)},${f(end[1] - side[1] * wing)}`,
     mid,
+    kind,
+    points, // the run the line follows, for checking it against items and other arrows
     box: { x0: Math.min(...xs), y0: Math.min(...ys), x1: Math.max(...xs), y1: Math.max(...ys) },
   };
 }

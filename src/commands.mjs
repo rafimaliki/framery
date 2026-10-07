@@ -9,6 +9,7 @@ import { cmd, project, t, where } from './kit.mjs';
 import { componentCommands } from './commands-components.mjs';
 import { historyCommands } from './commands-history.mjs';
 import { begin, record } from './history.mjs';
+import { checkArrows } from './arrow-check.mjs';
 
 const TYPES = ['frame', 'group', 'node', 'table'];
 const SHAPES = { terminal: [160, 56], process: [180, 72], diamond: [200, 120] };
@@ -116,7 +117,8 @@ function build(store, project, page, input) {
   if (item.type === 'frame') {
     if (!item.src) fail('a frame needs src: an html file inside the project');
     if (!existsSync(store.inside(project, item.src))) fail(`no file ${item.src} in the project`);
-    item.device ??= 'phone';
+    if (!item.device) fail(`a frame needs device: phone, tablet or desktop for a real screen, document for anything else (a spec, a gallery), or any name with w and h`);
+    if (item.device === 'document' && !item.h) item.autoHeight ??= true;
     if (!DEVICES[item.device] && !(item.w && item.h)) fail(`device ${item.device} needs w and h (presets: ${Object.keys(DEVICES).join(', ')})`);
     const [w, h] = DEVICES[item.device] ?? [0, 0];
     item.w ??= w;
@@ -155,7 +157,7 @@ const itemProps = {
   w: t.num('width; defaults from device or shape'),
   h: t.num('height; defaults from device or shape'),
   src: t.str('frame only: html path inside the project'),
-  device: t.str(`frame only: ${Object.keys(DEVICES).join(', ')} or any name with w and h`),
+  device: t.str(`frame only, required: phone, tablet or desktop for a real screen of that device; document for anything else (a spec, a gallery), auto height; or any name with w and h`),
   shape: t.one(Object.keys(SHAPES), 'node only'),
   parent: t.str('id of the group this item sits in'),
   autoHeight: t.bool('frame only: render_frames re-measures its height from the page'),
@@ -285,6 +287,51 @@ export const commands = {
       }),
   ),
 
+  move_to_page: cmd(
+    'Move items to another page; a group takes its members along. Arrows between moved items go with them; an arrow that would cross pages is refused. dx, dy shift them on the way.',
+    { ...where, ids: t.ids, to: t.str('target page id'), dx: t.num('right'), dy: t.num('down') },
+    ['ids', 'to'],
+    (store, a) => {
+      const name = store.name(a.project);
+      const from = pageId(store, name, a.page);
+      const to = checkName('page', a.to);
+      if (to === from) fail(`the items are already on ${to}`);
+      if (!(store.project(name).pages ?? []).some((p) => p.id === to)) fail(`no page ${to}`);
+      const source = store.page(name, from);
+      const target = store.page(name, to);
+      source.items ??= [];
+      source.arrows ??= [];
+      target.items ??= [];
+      target.arrows ??= [];
+      const moved = withMembers(source, a.ids);
+      const ids = new Set(moved.map((i) => i.id));
+      const crossing = source.arrows.filter((r) => ids.has(refItem(r.from)) !== ids.has(refItem(r.to)));
+      if (crossing.length) fail(`arrows would cross pages: ${crossing.map((r) => r.id).join(', ')}; remove them or move both ends`);
+      const arrows = source.arrows.filter((r) => ids.has(refItem(r.from)));
+      const clash = [...moved.filter((i) => target.items.some((x) => x.id === i.id)), ...arrows.filter((r) => target.arrows.some((x) => x.id === r.id))];
+      if (clash.length) fail(`ids already on ${to}: ${clash.map((i) => i.id).join(', ')}`);
+      const left = new Set();
+      for (const item of moved) {
+        item.x += a.dx ?? 0;
+        item.y += a.dy ?? 0;
+        if (item.parent && !ids.has(item.parent)) {
+          left.add(item.parent);
+          delete item.parent;
+        }
+      }
+      source.items = source.items.filter((i) => !ids.has(i.id));
+      source.arrows = source.arrows.filter((r) => !arrows.includes(r));
+      target.items.push(...moved);
+      target.arrows.push(...arrows);
+      for (const parent of left) if (members(source, parent).length) fitGroup(source, parent);
+      validate(store, name, source);
+      validate(store, name, target);
+      store.savePage(name, from, source);
+      store.savePage(name, to, target);
+      return { page: from, to, moved: [...ids], arrows: arrows.map((r) => r.id) };
+    },
+  ),
+
   arrange: cmd(
     'Lay items out in a row or a column, in the order given, with an even gap.',
     { ...where, ids: t.ids, direction: t.one(['row', 'column'], 'default row'), gap: t.num('default 120'), x: t.num('start x'), y: t.num('start y'), align: t.one(['start', 'center'], 'cross-axis alignment') },
@@ -390,6 +437,28 @@ export const commands = {
       const cache = store.inside(name, `.cache/anchors/${frame.id}.json`);
       const boxes = existsSync(cache) ? JSON.parse(readFileSync(cache, 'utf8')).anchors ?? {} : {};
       return anchorsOf(store, name, frame).map((id) => ({ id, box: boxes[id] }));
+    },
+  ),
+
+  check_arrows: cmd(
+    'Arrows the studio would draw badly on a page: two that cross or run along each other, or one that cuts through a frame, table or node. Run it after laying out a flow and fix what it lists: move items first, else set fromSide/toSide. Run render_frames first if it lists unmeasured frames.',
+    { ...where },
+    [],
+    (store, a) => {
+      const name = store.name(a.project);
+      const page = store.page(name, pageId(store, name, a.page));
+      const boxes = new Map();
+      const unmeasured = new Set();
+      const boxOf = (id, element) => {
+        if (!boxes.has(id)) {
+          const cache = store.inside(name, `.cache/anchors/${id}.json`);
+          boxes.set(id, existsSync(cache) ? JSON.parse(readFileSync(cache, 'utf8')).anchors ?? {} : null);
+        }
+        if (!boxes.get(id)) unmeasured.add(id);
+        return boxes.get(id)?.[element] ?? null;
+      };
+      const problems = checkArrows(page.items ?? [], page.arrows ?? [], boxOf);
+      return { problems, ...(unmeasured.size ? { unmeasured: [...unmeasured] } : {}) };
     },
   ),
 

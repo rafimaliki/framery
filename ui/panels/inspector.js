@@ -97,6 +97,8 @@ export function createInspector(el, { page, pageId, project, components, onPick,
     ];
   }
 
+  let shownKey = null; // what the open panel shows: the same subject again is a refresh, not an entrance
+
   return {
     show(sel) {
       const isArrow = sel.kind === 'arrow';
@@ -107,6 +109,10 @@ export function createInspector(el, { page, pageId, project, components, onPick,
       const title = isComponent ? subject.title ?? subject.id : isArrow ? [subject.from, subject.to].map((ref) => itemOf(ref)?.title ?? refId(ref)).join(' → ') : subject.title ?? subject.id;
       const body = isComponent ? componentBody(subject, sel) : isArrow ? arrowBody(subject) : itemBody(subject);
       const wasHidden = el.hidden;
+      const key = [sel.kind, sel.frame, sel.id, sel.at].join(':');
+      const refresh = !wasHidden && key === shownKey;
+      const scroll = refresh ? el.querySelector('.inspector__body')?.scrollTop ?? 0 : 0;
+      shownKey = key;
       el.hidden = false;
       el.replaceChildren(
         h(
@@ -117,6 +123,11 @@ export function createInspector(el, { page, pageId, project, components, onPick,
         ),
         h('div', { class: 'inspector__body' }, ...body.flat().filter(Boolean)),
       );
+      if (refresh) {
+        const next = el.querySelector('.inspector__body');
+        next.style.animation = 'none';
+        next.scrollTop = scroll;
+      }
       if (wasHidden) {
         el.style.animation = 'none';
         void el.offsetWidth;

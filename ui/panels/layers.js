@@ -18,6 +18,7 @@ export function createLayers({ box, list, search, toggleAll }, { onPick }) {
   let key = null;
   let selected = null;
   let open = new Set(); // ids of expanded groups
+  let shown = new Set(); // row ids already on screen: only a row that is new plays the entry animation
   const parentOf = new Map();
   let byFrame = new Map(); // frame id -> the components it uses: [{ id, title, count }]
   const rowId = (frame, component, at) => `${frame}:${component}:${at ?? ''}`;
@@ -58,7 +59,7 @@ export function createLayers({ box, list, search, toggleAll }, { onPick }) {
       h('span', { class: 'layer__title' }, comp.title),
       comp.hint ? h('span', { class: 'layer__tag' }, comp.hint) : null,
     );
-    const li = h('li', { class: 'layer-row layer-row--leaf layer-row--component', 'data-id': id });
+    const li = h('li', { class: `layer-row layer-row--leaf layer-row--component${shown.has(id) ? '' : ' layer-row--new'}`, 'data-id': id });
     li.style.setProperty('--i', index);
     li.style.setProperty('--depth', depth);
     li.append(pick);
@@ -79,7 +80,7 @@ export function createLayers({ box, list, search, toggleAll }, { onPick }) {
       item.step ? h('span', { class: 'layer__tag' }, item.step) : null,
       h('span', { class: 'layer__title' }, item.title ?? item.id),
     );
-    const li = h('li', { class: 'layer-row', 'data-id': item.id });
+    const li = h('li', { class: `layer-row${shown.has(item.id) ? '' : ' layer-row--new'}`, 'data-id': item.id });
     li.style.setProperty('--i', index);
     li.style.setProperty('--depth', depth); // each level sits one tab in from the one above
     if (item.type === 'group' || byFrame.has(item.id)) {
@@ -112,6 +113,8 @@ export function createLayers({ box, list, search, toggleAll }, { onPick }) {
     };
     walk(null, 0);
     list.replaceChildren(...(rows.length ? rows : [h('li', { class: 'layers__none' }, 'Nothing matches.')]));
+    // after the current task, so the second render that show() and setComponents() make together still animates
+    queueMicrotask(() => rows.forEach((li) => shown.add(li.dataset.id)));
     apply();
   }
 
@@ -173,7 +176,7 @@ export function createLayers({ box, list, search, toggleAll }, { onPick }) {
       key = pageKey;
       parentOf.clear();
       for (const item of page.items) if (item.parent) parentOf.set(item.id, item.parent);
-      if (fresh) open = restore();
+      if (fresh) (open = restore()), (shown = new Set());
       box.hidden = false;
       render();
     },

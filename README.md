@@ -64,7 +64,7 @@ In your project's root folder:
 
 ```sh
 cd my-project
-npm install --save-dev github:rafimaliki/framery#v0.2.1
+npm install --save-dev github:rafimaliki/framery#v0.3.0
 npx framery init
 npx framery
 ```
@@ -91,7 +91,7 @@ Nothing updates by itself, and framery never calls the network. Updating is a ch
 
 ```sh
 npx framery doctor                                        # what is installed, and is this project in step?
-npm install --save-dev github:rafimaliki/framery#v0.2.1  # pick a release (see CHANGELOG.md, or the tags)
+npm install --save-dev github:rafimaliki/framery#v0.3.0  # pick a release (see CHANGELOG.md, or the tags)
 npx framery init                                          # refresh the skill and the MCP entry
 npx framery doctor                                        # confirm
 ```
@@ -123,7 +123,7 @@ arrow can start or end on it.
 
 ### The tools an agent gets
 
-`outline`, `get_page`, `add_item`, `update_item`, `move_items`, `arrange`, `group_items`, `connect`,
+`outline`, `get_page`, `add_item`, `update_item`, `move_items`, `move_to_page`, `arrange`, `group_items`, `connect`, `check_arrows`,
 `list_anchors`, `set_cell` (and `add_row`, `add_column`, …), `set_token`, `render_frames`, `export_item`, `link`;
 components: `create_component`, `update_component`, `use_component`, `promote_component`, `find_candidates`, …;
 and `history`, `checkpoint`, `undo`, `restore`. The skill tells an agent which to reach for.
