@@ -5,7 +5,7 @@
 //   app            phone, tablet and desktop screens in three groups
 //   design-system  document frames: colors, type, controls
 //   plan           a table whose rows link to the screens
-//   stress         40 frames in one group: export caps, layer-list animations, zoomed-out captions
+//   stress         40 frames in five stacked row groups: export caps, layer-list animations, zoomed-out captions
 
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -195,9 +195,12 @@ await call('add_page', { id: 'stress', title: 'Stress (40 frames)', description:
 const many = Array.from({ length: 40 }, (_, n) => `s${String(n + 1).padStart(2, '0')}`);
 for (const [n, id] of many.entries()) {
   screen(`screens/stress/${id}.html`, `<h1>Screen ${n + 1}</h1><div class="card"><div class="balance">${n + 1}</div><div class="meter"><i style="width:${(n * 37) % 100}%"></i></div></div>${rows([['Row a', `$${n}.00`], ['Row b', `$${n * 2}.50`, 'out']])}`);
-  await call('add_item', { page: 'stress', type: 'frame', id, title: `Screen ${n + 1}`, src: `screens/stress/${id}.html`, device: 'phone', x: (n % 8) * 490, y: Math.floor(n / 8) * 960 });
+  await call('add_item', { page: 'stress', type: 'frame', id, title: `Screen ${n + 1}`, src: `screens/stress/${id}.html`, device: 'phone', x: (n % 8) * 490, y: Math.floor(n / 8) * 1100 });
 }
-await call('group_items', { page: 'stress', id: 'wall', ids: many, title: 'Wall of screens' });
+// rows stacked close: zoomed far out their captions have no room above them and must wait
+const rowGroups = [];
+for (let r = 0; r < 5; r++) rowGroups.push((await call('group_items', { page: 'stress', id: `row-${r + 1}`, ids: many.slice(r * 8, r * 8 + 8), title: `Row ${r + 1}` })).group.id);
+await call('group_items', { page: 'stress', id: 'wall', ids: rowGroups, title: 'Wall of screens' });
 
 // The seed must draw clean: measure the anchors (needs Chrome or Edge), then no arrow may cross another or cut through an item.
 try {

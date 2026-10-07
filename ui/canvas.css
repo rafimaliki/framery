@@ -36,6 +36,7 @@
 .world[data-lod="far"] .fr > .lb { display: none; }
 .gp { border-radius: 22px; background: var(--group); }
 .gp > .lb { font-size: 13px; padding-bottom: 9px; }
+.gp[data-tight]:not(:hover, .sel) > .lb { opacity: 0; } /* no room above at this zoom: see renderers/group.js */
 .gp.sel { box-shadow: 0 0 0 var(--ring) var(--accent); }
 
 /* ---- frames ---------------------------------------------------------------------------------- */

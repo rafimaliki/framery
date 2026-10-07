@@ -14,6 +14,7 @@ import { doctor } from '../src/doctor.mjs';
 import { fit } from '../src/export.mjs';
 import { checkArrows } from '../src/arrow-check.mjs';
 import { resolve } from '../ui/canvas/geometry.js';
+import { gapsOf } from '../ui/canvas/renderers/group.js';
 import { init } from '../src/init.mjs';
 import { Store } from '../src/store.mjs';
 
@@ -77,6 +78,16 @@ test('arrows: crossings and cuts through items are reported; a shared lane is sp
   assert.deepEqual(yes.p0, [200, 60]);
   assert.deepEqual(no.p0, [100, 120], 'the second branch leaves from the bottom point');
   assert.deepEqual(checkArrows(stacked, [{ id: 'up', from: 'f#retry', to: 'top' }], (id, el) => (id === 'f' && el === 'retry' ? [16, 780, 358, 48] : null)), []);
+});
+
+test('a group caption has the room up to the item above it, or to the top of the group around it', () => {
+  const gaps = gapsOf([
+    { id: 'outer', type: 'group', x: 0, y: 0, w: 1000, h: 1000 },
+    { id: 'top', type: 'group', x: 48, y: 48, w: 900, h: 400 },
+    { id: 'low', type: 'group', x: 48, y: 500, w: 900, h: 400 },
+    { id: 'aside', type: 'frame', x: 2000, y: 0, w: 390, h: 844 },
+  ]);
+  assert.deepEqual([gaps.get('outer'), gaps.get('top'), gaps.get('low')], [Infinity, 48, 52]);
 });
 
 test('move_to_page carries a group, its members and their arrows; refuses crossing arrows and clashing ids', async () => {
