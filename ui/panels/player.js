@@ -2,6 +2,7 @@
 // from goes where the arrow goes. A click anywhere else flashes what can be clicked. A diamond on the way
 // is asked as a question, one button per answer; arrows that start on no control (a timeout, a failed
 // sign-in) are buttons under the screen. Back, Esc, and the canvas follows to the last screen played.
+// In a tab of its own (play.html, `tab: true`) it fills the window and only ever goes back, never away.
 
 import { api } from '../core/api.js';
 import { h, icon } from '../core/dom.js';
@@ -24,14 +25,15 @@ export function flowStart(page, groupId) {
   return starts.length === 1 ? starts[0] : null;
 }
 
-export function createPlayer({ project, page, rev, onExit }) {
+export function createPlayer({ project, page, pageId, rev, onExit = () => {}, onScreen = () => {}, tab: own = false }) {
   const title = h('h2', { class: 'player__title' });
   const back = h('button', { class: 'icon-btn', type: 'button', 'aria-label': 'Back', title: 'Back', html: icon.back });
   const close = h('button', { class: 'icon-btn', type: 'button', 'aria-label': 'Stop playing', title: 'Stop playing (Esc)', html: icon.close });
-  const tab = h('a', { class: 'icon-btn', target: '_blank', rel: 'noopener', 'aria-label': 'Open this screen in a new tab', title: 'Open this screen in a new tab', html: icon.external });
+  const tab = h('a', { class: 'icon-btn', target: '_blank', rel: 'noopener', 'aria-label': 'Play in a new tab', title: 'Play in a new tab', html: icon.external });
   const stage = h('div', { class: 'player__stage' });
   const ways = h('div', { class: 'player__ways' });
-  const dialog = h('dialog', { class: 'player', 'aria-label': 'Play the flow' }, h('header', { class: 'player__head' }, back, title, tab, close), stage, ways);
+  const dialog = h('dialog', { class: `player${own ? ' player--tab' : ''}`, 'aria-label': 'Play the flow' }, h('header', { class: 'player__head' }, back, title, ...(own ? [] : [tab, close])), stage, ways);
+  if (own) dialog.addEventListener('cancel', (event) => event.preventDefault()); // Esc would leave an empty tab
   document.body.append(dialog);
   let trail = []; // ids played, the last one showing
   let fit = () => {};
@@ -64,16 +66,16 @@ export function createPlayer({ project, page, rev, onExit }) {
     const it = item(id);
     back.disabled = trail.length < 2;
     title.replaceChildren(...(it?.step ? [h('span', { class: 'inspector__step' }, `${it.step} `)] : []), it?.title ?? id);
+    tab.href = `/play.html?${new URLSearchParams({ project: project(), page: pageId(), start: id })}`;
+    onScreen(id, it?.title ?? id);
     const leaving = out(id);
     ways.replaceChildren(...leaving.filter((a) => !element(a.from) && it?.type === 'frame').map(way));
     if (!it || it.type !== 'frame') {
       // a question (a diamond), or anything that is not a screen: its ways out are the choices
-      tab.removeAttribute('href');
       stage.replaceChildren(h('div', { class: 'player__ask' }, h('p', null, it?.title ?? id), ...(leaving.length ? leaving.map(way) : [h('p', { class: 'player__end' }, 'The flow ends here.')])));
       fit = () => {};
       return;
     }
-    tab.href = `/preview.html?${new URLSearchParams({ project: project(), src: it.src, w: it.w, h: it.h, device: it.device ?? '', title: it.title ?? it.id })}`;
     const hot = new Map(leaving.filter((a) => element(a.from)).map((a) => [element(a.from), end(a.to)]));
     const frame = h('iframe', { class: 'player__frame', title: it.title ?? it.id, src: api.file(project(), it.src, rev()) });
     frame.style.width = `${it.w}px`;

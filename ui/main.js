@@ -67,7 +67,7 @@ const inspector = createInspector($('inspector'), {
 createHistory({ button: $('history-btn'), panel: $('history') }, { project: () => state.project, list: (project) => api.command('history', { project }), restore: (project, n) => api.command('restore', { project, n }) });
 createSettingsMenu({ button: $('settings-btn'), panel: $('settings') }, settings);
 // the canvas follows the prototype: when playing stops, the last screen played is selected
-const player = createPlayer({ project: () => state.project, page: () => state.page, rev: () => state.rev, onExit: (id) => id && state.page?.items.some((i) => i.id === id) && session.select({ kind: 'item', id }) });
+const player = createPlayer({ project: () => state.project, page: () => state.page, pageId: () => state.pageId, rev: () => state.rev, onExit: (id) => id && state.page?.items.some((i) => i.id === id) && session.select({ kind: 'item', id }) });
 const finder = createFinder({ project: () => state.project, pages: () => state.info?.pages ?? [], onGo: (page, id) => navigate({ project: state.project, page, id }) });
 installShortcuts({
   canvas,

@@ -285,7 +285,11 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .player__head { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-bottom: 1px solid var(--edge); background: var(--surface); }
 .player__title { flex: 1; margin: 0; font-size: 15px; }
 .player__head a.icon-btn { color: inherit; }
-.player__head a.icon-btn:not([href]) { visibility: hidden; } /* a question has no page to open */
+/* in a tab of its own (play.html): the whole window */
+.play-page { margin: 0; background: var(--bg-2); }
+.player--tab { width: 100vw; height: 100vh; max-width: none; border: 0; border-radius: 0; box-shadow: none; }
+.player--tab[open] { animation: none; }
+.player--tab::backdrop { background: var(--bg-2); }
 .player__stage { flex: 1; min-height: 0; display: grid; place-items: center; overflow: hidden; }
 .player__screen { position: relative; overflow: hidden; border-radius: 14px; box-shadow: 0 0 0 1px var(--edge), var(--float); background: var(--frame-paper); }
 .player__frame { position: absolute; top: 0; left: 0; border: 0; transform-origin: 0 0; background: var(--frame-paper); }

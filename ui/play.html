@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Play · Framery</title>
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="tokens.css">
+  <link rel="stylesheet" href="chrome.css">
+</head>
+<body class="play-page">
+<p class="empty" id="empty" hidden></p>
+<script type="module">
+  // A flow played in a tab of its own: the studio's player, filling the window. The address names the
+  // screen showing (?project=&page=&start=), so a reload or a shared link opens where it was.
+  import './core/settings.js';
+  import { api } from './core/api.js';
+  import { createPlayer } from './panels/player.js';
+
+  const q = new URLSearchParams(location.search);
+  const [project, pageId] = [q.get('project'), q.get('page')];
+  const say = (text) => Object.assign(document.getElementById('empty'), { hidden: false, textContent: text });
+  if (!/^[\w.-]+$/.test(project ?? '') || !/^[\w.-]+$/.test(pageId ?? '')) say('Nothing to play.');
+  else {
+    try {
+      const page = await api.page(project, pageId);
+      const player = createPlayer({
+        project: () => project,
+        page: () => page,
+        pageId: () => pageId,
+        rev: () => 0,
+        tab: true,
+        onScreen: (id, title) => {
+          q.set('start', id);
+          history.replaceState(null, '', `?${q}`);
+          document.title = `${title} · Framery`;
+        },
+      });
+      player.play(q.get('start') || undefined);
+    } catch (error) {
+      say(`Could not open ${project}/${pageId}: ${error.message}`);
+    }
+  }
+</script>
+</body>
+</html>
