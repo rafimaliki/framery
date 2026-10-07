@@ -81,6 +81,17 @@ test('arrows: crossings and cuts through items are reported; a shared lane is sp
   assert.deepEqual(checkArrows(stacked, [{ id: 'up', from: 'f#retry', to: 'top' }], (id, el) => (id === 'f' && el === 'retry' ? [16, 780, 358, 48] : null)), []);
 });
 
+test('move_page reorders the sidebar and refuses pages that do not exist', async () => {
+  const { store, project } = scratch();
+  const call = (tool, args) => run(store, tool, { project, ...args });
+  await call('add_page', { id: 'two', title: 'Two' });
+  await call('add_page', { id: 'three', title: 'Three' });
+  assert.deepEqual((await call('move_page', { id: 'three', before: 'flows' })).pages, ['three', 'flows', 'two']);
+  assert.deepEqual((await call('move_page', { id: 'three' })).pages, ['flows', 'two', 'three']);
+  await assert.rejects(call('move_page', { id: 'two', before: 'nope' }), /no page nope/);
+  await assert.rejects(call('move_page', { id: 'nope' }), /no page nope/);
+});
+
 test('move_to_page carries a group, its members and their arrows; refuses crossing arrows and clashing ids', async () => {
   const { call, store, project } = scratch();
   await run(store, 'add_page', { project, id: 'other', title: 'Other' });

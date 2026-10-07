@@ -48,7 +48,7 @@ All writes go through the tools. They validate, keep ids stable, and the open st
 | move to another page | `move_to_page {page, ids, to, dx?, dy?}`: a group takes its members; arrows between moved items go along, an arrow that would cross pages is refused |
 | arrows draw clean | `check_arrows {page}`: crossings, overlaps, arrows through items, labels covering items or each other; must be empty |
 | change anything | `update_item {id, patch}`, `update_arrow {id, patch}`, `remove_item`, `remove_arrow` |
-| a new page | `add_page {id, title}` |
+| a new page | `add_page {id, title}`; reorder with `move_page {id, before?}` (omit `before` to put it last) |
 | tokens | `set_token {name, value}` |
 | a table | `add_item {type:"table", columns:[{id,title,note?}], rows:[{id,title,link?:"page/item",cells:{columnId:text}}], marks:{"built":"positive"}}` |
 | progress in a table | `set_cell {id, row, column, value}`: one cell, the cheapest edit; `add_row`, `remove_row`, `add_column`, `remove_column` |
