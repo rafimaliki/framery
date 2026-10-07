@@ -3,7 +3,7 @@
 // code (ui/canvas) at 1:1, the zoom a person reads labels at, so a page that passes here draws clean there.
 
 import { meets, resolve, segments } from '../ui/canvas/geometry.js';
-import { PILL_H, labelAt, pillWidth, route } from '../ui/canvas/routes.js';
+import { CAPTION_H, PILL_H, captioned, labelAt, pillWidth, route } from '../ui/canvas/routes.js';
 import { refItem } from './layout.mjs';
 
 const SOLID = new Set(['frame', 'table', 'node']);
@@ -28,10 +28,11 @@ function inside([a, b], r) {
 export function checkArrows(items, arrows, boxOf, style = 'elbow') {
   const byId = new Map(arrows.map((a) => [a.id, a]));
   const solid = items.filter((i) => SOLID.has(i.type));
+  const captions = captioned(items).map((i) => ({ id: i.id, caption: true, x: i.x, y: i.y - CAPTION_H, w: i.w, h: CAPTION_H }));
   const runs = resolve(arrows, items, boxOf).map((g) => {
     const shape = route(style, g.p0, g.n0, g.p1, g.n1, g.via);
     const w = pillWidth(g.label);
-    const [x, y] = labelAt(shape.points, shape.mid, w, solid);
+    const [x, y] = labelAt(shape.points, shape.mid, w, [...solid, ...captions]);
     return { id: g.id, segs: segments(shape.points), pill: g.label ? { x: x - w / 2, y: y - PILL_H / 2, w, h: PILL_H } : null };
   });
   const problems = [];
@@ -45,8 +46,8 @@ export function checkArrows(items, arrows, boxOf, style = 'elbow') {
   }
   const covers = (p, r) => p.x < r.x + r.w && p.x + p.w > r.x && p.y < r.y + r.h && p.y + p.h > r.y;
   for (const run of runs) {
-    const item = run.pill && solid.find((i) => covers(run.pill, i));
-    if (item) problems.push({ arrow: run.id, label: item.id, problem: `the label of ${run.id} covers ${item.id}` });
+    const item = run.pill && [...solid, ...captions].find((i) => covers(run.pill, i));
+    if (item) problems.push({ arrow: run.id, label: item.id, problem: `the label of ${run.id} covers ${item.caption ? 'the caption of ' : ''}${item.id}` });
   }
   for (let a = 0; a < runs.length; a++) {
     for (let b = a + 1; b < runs.length; b++) {

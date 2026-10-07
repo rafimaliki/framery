@@ -14,6 +14,8 @@ import { doctor } from '../src/doctor.mjs';
 import { fit } from '../src/export.mjs';
 import { checkArrows } from '../src/arrow-check.mjs';
 import { resolve } from '../ui/canvas/geometry.js';
+import { labelAt } from '../ui/canvas/routes.js';
+import { layoutFlow } from '../src/layout.mjs';
 import { init } from '../src/init.mjs';
 import { Store } from '../src/store.mjs';
 
@@ -77,6 +79,40 @@ test('arrows: crossings and cuts through items are reported; a shared lane is sp
   assert.deepEqual(yes.p0, [200, 60]);
   assert.deepEqual(no.p0, [100, 120], 'the second branch leaves from the bottom point');
   assert.deepEqual(checkArrows(stacked, [{ id: 'up', from: 'f#retry', to: 'top' }], (id, el) => (id === 'f' && el === 'retry' ? [16, 780, 358, 48] : null)), []);
+});
+
+test('layout_flow: the longest path in a row, the happier branch on a tie, states under their screen', () => {
+  const at = (id, w = 390, h = 844) => ({ id, type: 'frame', x: Math.random() * 3000, y: Math.random() * 3000, w, h });
+  const page = {
+    id: 'p',
+    items: [at('home'), at('list'), at('detail'), at('add'), at('q', 200, 120), at('ok'), at('error'), at('note')],
+    arrows: [
+      { id: '1', from: 'home#add', to: 'add', tone: 'positive' }, // a dead end, positive or not
+      { id: '2', from: 'home#all', to: 'list' },
+      { id: '3', from: 'list', to: 'detail' },
+      { id: '4', from: 'detail', to: 'q' },
+      { id: '5', from: 'q', to: 'error', tone: 'negative' },
+      { id: '6', from: 'q', to: 'ok', tone: 'positive' },
+      { id: '7', from: 'error#retry', to: 'detail' },
+    ],
+  };
+  layoutFlow(page, page.items.map((i) => i.id), { x: 0, y: 0 });
+  const pos = Object.fromEntries(page.items.map((i) => [i.id, [Math.round(i.x), Math.round(i.y)]]));
+  const row = ['home', 'list', 'detail', 'q', 'ok'];
+  assert.deepEqual(row.map((id) => pos[id][0]), [...row.map((id) => pos[id][0])].sort((a, b) => a - b), 'the main path reads left to right');
+  assert.ok(row.every((id) => pos[id][1] < 844), 'and sits in the first row');
+  assert.equal(pos.error[0], pos.detail[0], 'a failure state goes under the screen it returns to');
+  assert.equal(pos.add[0], pos.home[0], 'a dead end goes under the screen that leads to it');
+  assert.ok(pos.error[1] > 844 && pos.add[1] > 844);
+  assert.ok(pos.note[0] > pos.ok[0], 'an unconnected item goes after the row');
+});
+
+test('a label slides along its line to a clear spot', () => {
+  const line = [[0, 0], [0, 400]];
+  assert.deepEqual(labelAt(line, [0, 200], 100, []), [0, 200], 'nothing in the way: the middle');
+  const moved = labelAt(line, [0, 200], 100, [{ x: -60, y: 150, w: 120, h: 120 }]);
+  assert.equal(moved[0], 0);
+  assert.ok(moved[1] + 10 <= 150 || moved[1] - 10 >= 270, 'off the box, on the line');
 });
 
 test('move_to_page carries a group, its members and their arrows; refuses crossing arrows and clashing ids', async () => {

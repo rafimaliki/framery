@@ -84,6 +84,86 @@ export function arrange(page, ids, { direction = 'row', gap = GAP, x, y, align =
   return list;
 }
 
+// Lay a flow out from its arrows: the main path in one row, left to right (the longest chain of screens, the
+// happier arrow when two are as long: "yes" before "no"); every other item directly under
+// the main-path item it belongs to (the one it points back to, else the one that leads to it), stacked
+// downward when several share a column. Items are the given ids (a group's members move with them); an
+// arrow end inside one of them counts as that item. Returns the items, moved.
+const TONE_ORDER = { positive: 0, neutral: 1, negative: 2 };
+
+export function layoutFlow(page, ids, { gap = 140, rowGap = 160, x, y } = {}) {
+  const list = ids.map((id) => find(page, id));
+  if (!list.length) return list;
+  const inSet = new Set(ids);
+  const top = (ref) => {
+    for (let id = refItem(ref); id; id = page.items.find((i) => i.id === id)?.parent) if (inSet.has(id)) return id;
+    return null;
+  };
+  const edges = (page.arrows ?? [])
+    .map((r) => ({ from: top(r.from), to: top(r.to), rank: TONE_ORDER[r.tone] ?? 1 }))
+    .filter((e) => e.from && e.to && e.from !== e.to);
+  const byId = new Map(list.map((i) => [i.id, i]));
+  const reading = (a, b) => a.y - b.y || a.x - b.x;
+
+  // the main row: from the entry, the way out that leads furthest, the happier one on a tie
+  // ponytail: plain depth-first search, exponential on a dense graph; flows are a few dozen items
+  const reach = (id, seen) => Math.max(0, ...edges.filter((e) => e.from === id && !seen.has(e.to)).map((e) => 1 + reach(e.to, new Set([...seen, e.to]))));
+  const entry = [...list].sort((a, b) => Number(edges.some((e) => e.to === a.id)) - Number(edges.some((e) => e.to === b.id)) || reading(a, b))[0];
+  const main = [entry.id];
+  for (;;) {
+    const seen = new Set(main);
+    const next = edges
+      .filter((e) => e.from === main.at(-1) && !seen.has(e.to))
+      .map((e) => ({ ...e, far: reach(e.to, new Set([...seen, e.to])) }))
+      .sort((a, b) => b.far - a.far || a.rank - b.rank)[0];
+    if (!next) break;
+    main.push(next.to);
+  }
+  // the rest: under the main item it returns to, else the one it came from; unconnected ones go last
+  const column = new Map(main.map((id) => [id, []]));
+  const placed = new Set(main);
+  for (let grew = true; grew; ) {
+    grew = false;
+    for (const item of [...list].sort(reading)) {
+      if (placed.has(item.id)) continue;
+      const home = (dir) => edges.filter((e) => e[dir === 'out' ? 'from' : 'to'] === item.id).map((e) => (dir === 'out' ? e.to : e.from)).find((id) => placed.has(id));
+      const at = home('out') ?? home('in');
+      if (!at) continue;
+      const owner = column.has(at) ? at : [...column].find(([, below]) => below.includes(at))[0];
+      column.get(owner).push(item.id);
+      placed.add(item.id);
+      grew = true;
+    }
+  }
+  const loose = list.filter((i) => !placed.has(i.id)).sort(reading).map((i) => i.id);
+
+  const moveTo = (item, tx, ty) => {
+    const dx = tx - item.x;
+    const dy = ty - item.y;
+    for (const part of withMembers(page, [item.id])) {
+      part.x += dx;
+      part.y += dy;
+    }
+  };
+  const left = x ?? Math.min(...list.map((i) => i.x));
+  const top0 = y ?? Math.min(...list.map((i) => i.y));
+  const rowH = Math.max(...main.map((id) => byId.get(id).h));
+  let cursor = left;
+  for (const id of [...main, ...loose]) {
+    const item = byId.get(id);
+    moveTo(item, cursor, top0 + (rowH - item.h) / 2);
+    let below = top0 + rowH + rowGap;
+    for (const under of column.get(id) ?? []) {
+      const u = byId.get(under);
+      moveTo(u, cursor + (item.w - u.w) / 2, below);
+      below += u.h + rowGap;
+    }
+    cursor += Math.max(item.w, ...(column.get(id) ?? []).map((u) => byId.get(u).w)) + gap;
+  }
+  for (const parent of new Set(list.map((i) => i.parent).filter(Boolean))) fitGroup(page, parent);
+  return list;
+}
+
 // Left to right along each row, rows top to bottom: how a page is read when nothing connects it.
 function rowMajor(list) {
   const rows = [];

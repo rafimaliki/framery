@@ -1,3 +1,5 @@
+import { CAPTION_H } from './routes.js';
+
 // Pure arrow geometry in world units: which side an arrow leaves and enters, where along that side it
 // sits when several share it, and the curve between. No DOM, no view, nothing to mock.
 
@@ -132,7 +134,12 @@ export function resolve(arrows, items, boxOf) {
       const n1 = NORMAL[to.side];
       // an anchored end's first run must clear its own frame, not stop just past the control
       const clear = (end) => (end.element ? Math.max(0, roomOf(end.rect, byId.get(end.id))[end.side]) : 0);
-      return { id: arrow.id, label: arrow.label ?? '', tone: arrow.tone ?? 'neutral', p0, n0, p1, n1, anchored: from.element, via: { ...channel(items, p0, n0, p1, n1), clear0: clear(from), clear1: clear(to) } };
+      // an end on the top of a captioned item turns above its caption (screen px, so not scaled)
+      const cap = (end) => {
+        const item = byId.get(end.id);
+        return !end.element && end.side === 'top' && ['frame', 'group', 'table'].includes(item.type) && (item.title || item.step) ? CAPTION_H : 0;
+      };
+      return { id: arrow.id, label: arrow.label ?? '', tone: arrow.tone ?? 'neutral', p0, n0, p1, n1, anchored: from.element, via: { ...channel(items, p0, n0, p1, n1), clear0: clear(from), clear1: clear(to), cap0: cap(from), cap1: cap(to) } };
     }),
   );
 }
