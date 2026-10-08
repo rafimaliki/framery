@@ -447,11 +447,17 @@ test('MCP: initialize, list tools, call one, report an error as isError', async 
   }
 });
 
-test('init wires skills for both agents, an MCP entry and an empty project; twice is safe', () => {
+test('init wires skills for both agents, AGENTS.md for the rest, an MCP entry and an empty project; twice is safe', () => {
   const root = mkdtempSync(join(tmpdir(), 'framery-init-'));
   writeFileSync(join(root, '.mcp.json'), JSON.stringify({ mcpServers: { other: { command: 'x' } } }));
+  writeFileSync(join(root, 'AGENTS.md'), '# My app\n\nOur rules.\n');
   init({ dir: root });
   init({ dir: root });
+  const agents = readFileSync(join(root, 'AGENTS.md'), 'utf8');
+  assert.ok(agents.startsWith('# My app\n\nOur rules.\n\n<!-- framery:start -->'), 'what was there is kept');
+  assert.equal(agents.split('<!-- framery:start -->').length, 2, 'one block, refreshed in place');
+  assert.match(agents, /\.claude\/skills\/framery\/SKILL\.md/);
+  assert.match(agents, /npx framery cmd <tool>/);
   for (const dir of ['.claude/skills/framery', '.omp/skills/framery']) assert.ok(existsSync(join(root, dir, 'SKILL.md')), dir);
   const mcp = JSON.parse(readFileSync(join(root, '.mcp.json'), 'utf8'));
   assert.ok(mcp.mcpServers.other && mcp.mcpServers.framery, 'existing servers are kept');
@@ -502,6 +508,10 @@ test('doctor: a fresh init is in step; a stale skill is reported; a newer data f
   assert.ok(!stale.ok && /another version/.test(stale.problems[0]));
   init({ dir: root });
   assert.equal(doctor({ dir: root }).ok, true, 'init refreshes it');
+  writeFileSync(join(root, 'AGENTS.md'), '# rules only\n');
+  assert.match(doctor({ dir: root }).problems.join(), /AGENTS\.md/);
+  init({ dir: root });
+  assert.equal(doctor({ dir: root }).ok, true, 'init puts the block back');
 
   const base = new Store(join(root, 'framery'));
   const flows = join(base.dir(base.projects()[0]), 'pages', 'flows.json');

@@ -3,8 +3,9 @@
 // install another version, run `framery init` to refresh the skills, run doctor to confirm.
 
 import { existsSync, readFileSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { agentsBlock } from './init.mjs';
 import { FORMAT, Store, readJson } from './store.mjs';
 
 const PKG = resolve(fileURLToPath(new URL('..', import.meta.url)));
@@ -21,6 +22,10 @@ export function doctor({ dir = '.', data = 'framery' } = {}) {
     if (!existsSync(have)) problems.push(`no skill in ${target}: run framery init`);
     else if (!same(skill, have)) problems.push(`the skill in ${target} is from another version: run framery init`);
   }
+  const agents = join(project, 'AGENTS.md');
+  const rel = relative(project, resolve(project, data)).split(sep).join('/') || '.';
+  const block = existsSync(agents) && readFileSync(agents, 'utf8').replace(/\r\n/g, '\n').includes(agentsBlock(rel));
+  if (!block) problems.push('no current framery block in AGENTS.md: run framery init');
   const mcp = join(project, '.mcp.json');
   if (!existsSync(mcp) || !JSON.parse(readFileSync(mcp, 'utf8')).mcpServers?.framery) problems.push('no framery entry in .mcp.json: run framery init');
 

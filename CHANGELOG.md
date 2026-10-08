@@ -3,6 +3,12 @@
 Releases are git tags (`v0.1.0`). Nothing updates by itself: you pick a version, see "Updating" in the README.
 A release that changes the data format says so here and ships its migration; until then every project is format 1.
 
+## Unreleased
+
+- Works with any agent: `init` keeps a marked block in `AGENTS.md` (created if missing, the rest untouched) that
+  points agents without a skill folder, such as Codex, Cursor, Copilot and Gemini CLI, at the skill and at the
+  `npx framery cmd` shell commands. `doctor` reports a missing or stale block.
+
 ## 0.4.0
 
 New tools:

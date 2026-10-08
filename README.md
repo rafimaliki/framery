@@ -73,13 +73,17 @@ npx framery
 
 Then open <http://127.0.0.1:4173> (if that port is busy, the studio takes the next free one and prints it).
 
-`init` does four things, and is safe to run again:
+`init` does five things, and is safe to run again:
 
 1. Copies the **framery skill** into `.claude/skills/` and `.omp/skills/`, so your agent already knows how to
-   operate the board. Claude Code, omp and anything that reads `AGENTS.md`-style skills pick it up.
-2. Registers the **MCP server** in `.mcp.json` (existing entries are kept). Restart your agent once so it connects.
-3. Adds the generated folders (`.cache`, `exports`, `.history`) to `.gitignore`.
-4. Creates `framery/<your-project>/` with an empty project, if there is none.
+   operate the board. Claude Code and omp load it from there.
+2. Keeps a short marked block in **`AGENTS.md`** (created if missing, the rest of the file untouched) that points
+   any other agent, Codex, Cursor, Copilot, Gemini CLI and the like, at the skill and at the shell commands.
+   Framery works with any agent: one that speaks MCP gets the tools directly, anything with a shell runs them
+   through `npx framery cmd`.
+3. Registers the **MCP server** in `.mcp.json` (existing entries are kept). Restart your agent once so it connects.
+4. Adds the generated folders (`.cache`, `exports`, `.history`) to `.gitignore`.
+5. Creates `framery/<your-project>/` with an empty project, if there is none.
 
 From then on, ask your agent: *"Design the sign-in flow in framery"*, *"connect these screens"*,
 *"add a plan page and mark home as built"*, *"undo that"*.
