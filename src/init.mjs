@@ -1,7 +1,7 @@
 // `framery init`: the one deliberate step that wires a project to framery. It copies the skills into
-// the places agents look (.claude/skills, .omp/skills), registers the MCP server in .mcp.json, keeps the
-// generated folders out of git, and makes an empty data folder (framery/) when there is none. Safe to
-// run again: it refreshes, never duplicates.
+// the places agents look (.claude/skills, .omp/skills), points every other agent at them from AGENTS.md,
+// registers the MCP server in .mcp.json, keeps the generated folders out of git, and makes an empty data
+// folder (framery/) when there is none. Safe to run again: it refreshes, never duplicates.
 
 import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { basename, join, relative, resolve, sep } from 'node:path';
@@ -10,6 +10,32 @@ import { FORMAT, Store, writeJson } from './store.mjs';
 
 const PKG = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const slash = (path) => path.split(sep).join('/');
+
+// Agents that look in neither skill folder (Codex, Cursor, Copilot, Gemini CLI, ...) read AGENTS.md. Init keeps
+// one marked block there that points them at the skill and the shell commands; text outside it is never touched.
+const START = '<!-- framery:start -->';
+const END = '<!-- framery:end -->';
+
+export function agentsBlock(rel) {
+  const data = rel === 'framery' ? '' : ` --data ${rel}`;
+  return [
+    START,
+    '## Design (framery)',
+    '',
+    `Screens, flows, the design system and the plan live in \`${rel}/\`. Change them through framery's tools, never by hand.`,
+    'Before any design work, read `.claude/skills/framery/SKILL.md`: what each tool does and when to reach for it.',
+    'The tools: the `framery` MCP server in `.mcp.json`, or from a shell, `npx framery tools` lists them and',
+    `\`npx framery cmd <tool> '<json>'${data}\` runs one. The person reviews in the studio: \`npx framery${data}\`.`,
+    END,
+  ].join('\n');
+}
+
+export function withAgentsBlock(text, block) {
+  const at = text.indexOf(START);
+  const end = at < 0 ? -1 : text.indexOf(END, at);
+  if (end >= 0) return text.slice(0, at) + block + text.slice(end + END.length);
+  return text.trim() ? `${text.trimEnd()}\n\n${block}\n` : `${block}\n`;
+}
 
 export function init({ dir = '.', data } = {}) {
   const project = resolve(dir);
@@ -26,6 +52,10 @@ export function init({ dir = '.', data } = {}) {
     }
     done.push(`skills -> ${target}`);
   }
+
+  const agents = join(project, 'AGENTS.md');
+  writeFileSync(agents, withAgentsBlock(existsSync(agents) ? readFileSync(agents, 'utf8') : '', agentsBlock(rel)));
+  done.push('AGENTS.md');
 
   const store = new Store(root);
   if (!store.projects().length) {
