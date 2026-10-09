@@ -5,25 +5,25 @@
 
 :root {
   color-scheme: light;
-  --bg: #f4f1ea;
-  --bg-2: #eae6dc;
-  --chrome: #e8e4d9;
+  --bg: #ffffff;
+  --bg-2: #eeece7;
+  --chrome: #f6f5f2;
   --active: rgba(22, 22, 26, 0.08);
-  --surface: #fffdf8;
+  --surface: #ffffff;
   --ink: #16161a;
-  --ink-soft: #5b5b63;
-  --ink-faint: #8d8c92;
+  --ink-soft: #5d5c65;
+  --ink-faint: #6f6e76;
   --frame-paper: #f4f1ea; /* what a frame looks like before its picture arrives, or when too small for one: a page, not a hole, in either theme */
-  --accent: #ef4b23;
+  --accent: #1f4bff;
   --accent-ink: #ffffff;
   --dot: rgba(22, 22, 26, 0.22);
   --group: rgba(22, 22, 26, 0.055);
   --shadow-c: #16161a;
   --pos: #1f8a4c;
-  --neg: #c8213f; /* crimson, so a failure arrow never reads as the orange accent */
+  --neg: #c8213f; /* crimson, so a failure arrow never reads as the blue accent */
   --neu: #7b7b84;
   --hover: rgba(22, 22, 26, 0.06);
-  --edge: rgba(22, 22, 26, 0.14);
+  --edge: rgba(22, 22, 26, 0.16);
   --float: 0 6px 22px rgba(22, 22, 26, 0.14);
 
   --line: 2px;
@@ -53,8 +53,8 @@
   --ink: #efece5;
   --ink-soft: #b4b3bc;
   --ink-faint: #85848f;
-  --accent: #ff6a45;
-  --accent-ink: #1a0a05;
+  --accent: #8f9bff; /* the page blue is too dark on ink */
+  --accent-ink: #16161a;
   --dot: rgba(239, 236, 229, 0.17);
   --group: rgba(255, 255, 255, 0.065);
   --shadow-c: #141417;
