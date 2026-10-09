@@ -34,7 +34,7 @@ export function init({ dir = '.', data } = {}) {
     mkdirSync(join(base, 'pages'), { recursive: true });
     writeJson(join(base, 'project.json'), { format: FORMAT, title: basename(project), tokens: 'tokens.css', pages: [{ id: 'flows', title: 'Flows' }] });
     writeJson(join(base, 'pages', 'flows.json'), { id: 'flows', title: 'Flows', items: [], arrows: [] });
-    writeFileSync(join(base, 'tokens.css'), ':root {\n  --paper: #f4f1ea;\n  --ink: #16161a;\n  --accent: #ef4b23;\n}\n');
+    writeFileSync(join(base, 'tokens.css'), ':root {\n  --paper: #f4f1ea;\n  --ink: #16161a;\n  --accent: #7a1f5c;\n}\n');
     done.push(`empty project ${slash(relative(project, base))}`);
   }
 
