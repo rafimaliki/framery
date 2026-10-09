@@ -92,7 +92,7 @@ export function createPlayer({ project, page, pageId, rev, onExit = () => {}, on
     frame.addEventListener('load', () => {
       const doc = frame.contentDocument;
       if (!doc) return;
-      doc.head.append(Object.assign(doc.createElement('style'), { textContent: '[data-fr-hot]{cursor:pointer}[data-fr-flash] [data-fr-hot]{outline:3px solid rgba(31,75,255,.75);outline-offset:2px;transition:outline-color .6s}' }));
+      doc.head.append(Object.assign(doc.createElement('style'), { textContent: '[data-fr-hot]{cursor:pointer}[data-fr-flash] [data-fr-hot]{outline:3px solid rgba(122,31,92,.75);outline-offset:2px;transition:outline-color .6s}' }));
       for (const name of hot.keys()) doc.querySelector(`[data-anchor="${CSS.escape(name)}"],[id="${CSS.escape(name)}"]`)?.setAttribute('data-fr-hot', '');
       doc.addEventListener('click', (event) => {
         for (let el = event.target; el && el !== doc.body; el = el.parentElement) {
