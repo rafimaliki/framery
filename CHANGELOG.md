@@ -3,7 +3,7 @@
 Releases are git tags (`v0.1.0`). Nothing updates by itself: you pick a version, see "Updating" in the README.
 A release that changes the data format says so here and ships its migration; until then every project is format 1.
 
-## Unreleased
+## 0.4.1
 
 Studio:
 - A lighter look: white chrome with a plum accent (soft plum in the dark theme) in place of orange, and a new icon.
