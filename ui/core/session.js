@@ -5,7 +5,7 @@
 import { api } from './api.js';
 import { bus } from './bus.js';
 
-const state = { projects: [], project: null, info: null, pageId: null, page: null, sel: null, rev: 0, components: [] };
+const state = { projects: [], project: null, info: null, pageId: null, page: null, sel: null, rev: 0, components: [], notes: [] };
 
 const itemOf = (page, id) => page?.items.find((item) => item.id === id);
 const arrowOf = (page, id) => page?.arrows.find((arrow) => arrow.id === id);
@@ -20,6 +20,12 @@ function exists(sel) {
 async function loadComponents() {
   state.components = await api.components(state.project);
   bus.emit('components', state.components);
+}
+
+// The comments people pinned to screens (notes.json), for the whole project.
+async function loadNotes() {
+  state.notes = await api.command('list_notes', { project: state.project }).catch(() => []);
+  bus.emit('notes', state.notes);
 }
 
 async function loadPage() {
@@ -47,6 +53,7 @@ export const session = {
       state.rev = 0;
       bus.emit('project', { name, info: state.info, projects: state.projects });
       loadComponents();
+      loadNotes();
     }
     const pages = state.info.pages ?? [];
     const wanted = pages.some((p) => p.id === page) ? page : pages[0]?.id;
@@ -59,6 +66,8 @@ export const session = {
     }
     session.select(id && itemOf(state.page, id) ? { kind: 'item', id } : null, { quiet: !id });
   },
+
+  loadNotes,
 
   select(sel, { quiet = false } = {}) {
     if (!state.sel && !sel) return;
@@ -79,6 +88,7 @@ export const session = {
       await loadPage();
       if (!exists(state.sel)) session.select(null);
     }
+    if (mine.some((e) => e.type === 'notes')) await loadNotes();
     if (mine.some((e) => e.type === 'history')) bus.emit('history');
     if (mine.some((e) => e.type === 'cache')) {
       state.rev = Date.now();

@@ -6,21 +6,13 @@
 
 import { api } from '../core/api.js';
 import { h, icon } from '../core/dom.js';
+import { createNotePopup, describe } from '../core/notes.js';
 
 const end = (ref) => ref.split('#')[0];
 const element = (ref) => ref.split('#')[1] ?? null;
 const PAD = 48; // room around the screen inside the stage
 
-// A selector that finds el again: its id, or the tags and positions down from body.
-function pathOf(el) {
-  const parts = [];
-  for (; el && !['BODY', 'HTML'].includes(el.tagName); el = el.parentElement) {
-    if (el.id) return [`#${CSS.escape(el.id)}`, ...parts].join(' > ');
-    const same = [...el.parentElement.children].filter((c) => c.tagName === el.tagName);
-    parts.unshift(el.tagName.toLowerCase() + (same.length > 1 ? `:nth-of-type(${same.indexOf(el) + 1})` : ''));
-  }
-  return ['body', ...parts].join(' > ');
-}
+
 
 // Where a group's flow starts: the one item inside it (at any depth) with arrows out and none in. None,
 // or more than one, and the group is not one playable flow.
@@ -51,8 +43,8 @@ export function createPlayer({ project, page, pageId, rev, onExit = () => {}, on
   let fit = () => {};
   let noting = false; // comment mode
   let shown = 0; // which screen is showing, so a slow reply for the last one is dropped
-  let popup = null;
-  const closePopup = () => (popup?.remove(), (popup = null));
+  const popup = createNotePopup(dialog);
+  const closePopup = popup.close;
 
   const item = (id) => page().items.find((i) => i.id === id);
   const out = (id) => page().arrows.filter((a) => end(a.from) === id);
@@ -105,18 +97,11 @@ export function createPlayer({ project, page, pageId, rev, onExit = () => {}, on
     let notes = [];
     let scale = 1;
 
-    // A popup under an element (r is its box in the screen's own pixels), in window pixels.
-    const popAt = (r, ...kids) => {
-      closePopup();
+    // Just under an element (r is its box in the screen's own pixels), in window pixels.
+    const under = (r) => {
       const f = frame.getBoundingClientRect();
-      popup = h('div', { class: 'player__pop' }, ...kids);
-      popup.style.left = `${Math.max(8, Math.min(f.left + r.left * scale, innerWidth - 292))}px`;
-      popup.style.top = `${Math.max(8, Math.min(f.top + r.bottom * scale + 6, innerHeight - 190))}px`;
-      dialog.append(popup);
+      return { left: f.left + r.left * scale, top: f.top + r.bottom * scale + 6 };
     };
-    const msg = () => h('p', { class: 'player__pop-msg' });
-    const failed = (error) => popup?.querySelector('.player__pop-msg')?.replaceChildren(error.message);
-    const btn = (label, onclick) => h('button', { class: 'text-btn', type: 'button', onclick }, label);
 
     function paintPins() {
       pins.replaceChildren();
@@ -128,8 +113,8 @@ export function createPlayer({ project, page, pageId, rev, onExit = () => {}, on
         const pin = h('button', { class: 'player__pin', type: 'button', title: note.text }, String(n + 1));
         pin.style.left = `${Math.max(0, r.left * scale - 11)}px`;
         pin.style.top = `${Math.max(0, r.top * scale - 11)}px`;
-        const drop = () => api.command('resolve_note', { project: project(), id: note.id }).then(() => ((notes = notes.filter((x) => x !== note)), closePopup(), paintPins()), failed);
-        pin.addEventListener('click', () => popAt(r, h('p', { class: 'player__pop-text' }, note.text), msg(), h('div', { class: 'player__pop-row' }, btn('Close', closePopup), btn('Delete', drop))));
+        const drop = () => api.command('resolve_note', { project: project(), id: note.id }).then(() => ((notes = notes.filter((x) => x !== note)), paintPins()));
+        pin.addEventListener('click', () => popup.show(under(r), note, drop));
         pins.append(pin);
       });
     }
@@ -143,35 +128,12 @@ export function createPlayer({ project, page, pageId, rev, onExit = () => {}, on
       paintPins();
     };
     fit();
-    api.command('list_notes', { project: project(), item: id }).then((list) => mine === shown && ((notes = list), paintPins()), () => {});
+    api.command('list_notes', { project: project(), page: pageId(), item: id }).then((list) => mine === shown && ((notes = list), paintPins()), () => {});
 
     function noteOn(el) {
-      const area = h('textarea', { class: 'player__pop-input', rows: 3, placeholder: 'What should change here?' });
-      const save = btn('Save');
-      const submit = () => {
-        if (!area.value.trim()) return;
-        save.disabled = true;
-        api
-          .command('add_note', {
-            project: project(),
-            page: pageId(),
-            item: id,
-            text: area.value,
-            selector: pathOf(el),
-            anchor: el.dataset?.anchor || el.id || undefined,
-            html: el.outerHTML.slice(0, 600),
-            label: el.textContent.trim().replace(/\s+/g, ' ').slice(0, 120) || undefined,
-          })
-          .then((note) => mine === shown && (notes.push(note), closePopup(), paintPins()))
-          .catch((error) => ((save.disabled = false), failed(error)));
-      };
-      save.addEventListener('click', submit);
-      area.addEventListener('keydown', (event) => {
-        if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) submit();
-        if (event.key === 'Escape') (event.preventDefault(), closePopup()); // not the dialog's Esc
-      });
-      popAt(el.getBoundingClientRect(), area, msg(), h('div', { class: 'player__pop-row' }, btn('Cancel', closePopup), save));
-      area.focus();
+      popup.compose(under(el.getBoundingClientRect()), (text) =>
+        api.command('add_note', { project: project(), page: pageId(), item: id, text, ...describe(el) }).then((note) => mine === shown && (notes.push(note), paintPins())),
+      );
     }
 
     frame.addEventListener('load', () => {

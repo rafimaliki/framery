@@ -4,6 +4,7 @@
 
 import { createAnchors } from './anchors.js';
 import { createArrows } from './arrows.js';
+import { createCanvasNotes } from './notes.js';
 import { checkArrows, flagged } from './check.js';
 import { createOutline } from './outline.js';
 import { renderers } from './renderers/index.js';
@@ -51,6 +52,9 @@ export function createCanvas({ view: viewEl, world: worldEl, arrows: svg }, deps
     return el && (el.offsetWidth || el.offsetHeight) ? rectOf(el) : anchors.box(id, name);
   };
 
+  const notes = createCanvasNotes(worldEl, viewEl, { project: deps.project, frameRev: () => frameRev, page: () => page, liveDoc, onAdd: deps.onNote, onRemove: deps.onNoteRemove });
+  let commenting = false;
+
   const viewport = createViewport(viewEl, worldEl, {
     animated: deps.animated,
     onChange(view) {
@@ -66,6 +70,13 @@ export function createCanvas({ view: viewEl, world: worldEl, arrows: svg }, deps
     onTap: ({ target, x, y }) => {
       const link = target.closest?.('[data-link]'); // a table row's name opens what it links to
       if (link) return deps.onOpen(link.dataset.link);
+      const pin = target.closest?.('.note-pin');
+      if (pin) return notes.read(pin);
+      if (commenting) {
+        const at = viewEl.getBoundingClientRect();
+        const p = viewport.toWorld(x, y);
+        return notes.comment(p.x, p.y, { x: at.left + x, y: at.top + y });
+      }
       const picked = pick(target);
       // Inside the frame that is already selected, a click picks the component under it, if any.
       deps.onPick((picked?.kind === 'item' && picked.id === inFrame && componentAt(picked.id, viewport.toWorld(x, y))) || picked);
@@ -216,6 +227,7 @@ export function createCanvas({ view: viewEl, world: worldEl, arrows: svg }, deps
         world.clear();
       }
       world.setItems(page.items);
+      notes.paint();
       reroute();
       syncArrows();
       loadAnchors();
@@ -253,6 +265,11 @@ export function createCanvas({ view: viewEl, world: worldEl, arrows: svg }, deps
 
     // The detail panel was closed: the selection stays, the camera no longer leaves room for the panel.
     syncArrows,
+    // Comments: the open page's list, whether pins show, and whether a click makes a new one.
+    setNotes(next) {
+      commenting = next.commenting;
+      notes.set(next);
+    },
     closeDetail: () => (inspectorOpen = false),
     focus,
     fitAll: () => page && viewport.glide(viewport.fit(bounds(page.items), { pad: 70, max: 0.9 })),

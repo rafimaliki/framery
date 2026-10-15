@@ -12,7 +12,7 @@ const load = (store, name) => (existsSync(file(store, name)) ? readJson(file(sto
 export const noteCommands = {
   add_note: cmd(
     'Pin a comment to a screen, or to one element of it. The studio calls this when a person comments in the player.',
-    { ...where, item: t.str('frame id'), text: t.str('the comment'), selector: t.str('css selector of the element'), anchor: t.str('its id or data-anchor, when it has one'), html: t.str('the element\'s outer html, trimmed'), label: t.str('its visible text, trimmed') },
+    { ...where, item: t.str('frame id'), text: t.str('the comment'), selector: t.str('css selector of the element'), anchor: t.str('its id or data-anchor, when it has one'), html: t.str('the element\'s outer html, trimmed'), label: t.str('its visible text, trimmed'), box: { type: 'array', items: { type: 'number' }, description: '[x, y, w, h] of the element in the screen own pixels; where the studio pins it' } },
     ['item', 'text'],
     (store, a) => {
       const name = store.name(a.project);
@@ -21,7 +21,7 @@ export const noteCommands = {
       if (!frame || frame.type !== 'frame') fail(`${a.item} is not a frame on ${page}`);
       if (!String(a.text).trim()) fail('text is empty');
       const notes = load(store, name);
-      const note = { id: `n${Math.max(0, ...notes.map((n) => +n.id.slice(1))) + 1}`, page, item: a.item, src: frame.src, text: String(a.text).trim(), selector: a.selector, anchor: a.anchor, html: a.html?.slice(0, 600), label: a.label?.slice(0, 120) };
+      const note = { id: `n${Math.max(0, ...notes.map((n) => +n.id.slice(1))) + 1}`, page, item: a.item, src: frame.src, text: String(a.text).trim(), selector: a.selector, anchor: a.anchor, html: a.html?.slice(0, 600), label: a.label?.slice(0, 120), box: Array.isArray(a.box) && a.box.length === 4 && a.box.every(Number.isFinite) ? a.box : undefined };
       writeJson(file(store, name), [...notes, Object.fromEntries(Object.entries(note).filter(([, v]) => v !== undefined))]);
       return note;
     },
