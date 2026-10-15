@@ -28,6 +28,28 @@ come from you.
 5. A page can hold a **table** (a plan, a matrix). `outline` prints it as a grid, one line per row, so
    "which flows are built?" is `outline {page: "plan"}`.
 6. `list_tokens` — the design values (`--paper`, `--ink`, …) the frames use.
+7. `list_notes` — comments the person pinned to a screen or an element in the studio's player
+   ("fix this", "make this bigger"). Each names the frame, its `src` file, the element (`anchor` or
+   `selector`, plus its `html` and visible `label`) and the comment. Treat them as the task: edit exactly
+   that element, then `resolve_note {id}`. Check them when the person says "see my comments" or similar.
+
+**Watch for comments and chat by default.** When the studio is in use, start `npx framery watch` once with your
+harness's background monitor (Claude Code: the Monitor tool, never a foreground shell; an agent that can only run
+a command to the end runs `npx framery watch --once` again after each batch). It prints one line per thing waiting
+for you, including what was already waiting, and each new one as it arrives: `NOTE …` is a comment, `CHAT …` is a
+message the person typed in the studio's chat. Treat every NOTE line as a task: edit that element, then `resolve_note {id}`.
+For a CHAT line do what is asked, within the design data (screens, components, tokens, pages); anything beyond that
+(git, deleting files, running commands) ask first. Always finish with `reply_chat {text}`: say what you did or what you
+need, even to decline. It answers every message sent so far. The studio tells the person "the agent is on it" until
+you resolve, so always resolve, even when you chose not to change anything (say why in your reply).
+
+If `watch` (or `list_notes`, `list_chat`, `check_layout`) is not known, the installed framery is older than this skill:
+tell the person to update it (see Updating), then carry on without it. Do not poll the files or the studio instead.
+
+Never leave a comment hanging. If it is too vague to act on, or you disagree with it, call
+`ask_note {id, question}`: the question appears on its pin and the person answers there (the answer returns
+through `watch` as the same comment with `Q:`/`A:` lines added). Do not ask in the chat instead, and do not
+skip it. The studio also warns the person when no `watch` is running, so keep it running for the whole session.
 
 Descriptions are the product intent, written for whoever builds the screen. Read the group description
 for the flow's rules and each frame's description for that state. Build to them; if a frame and its
@@ -76,6 +98,25 @@ Conventions that keep the board readable:
   and fix every problem before you finish. Move items first: the happy path in one row, a state or a
   failure directly under the screen it belongs to, and nothing standing between two connected items.
   Only when moving cannot fix it, set `fromSide`/`toSide` with `update_arrow`. Never leave a crossing.
+- **Every thing has one page.** A flow page (the app, onboarding, …) holds product screens only. The design
+  system page holds tokens, components and their sheets (`component_sheet`): a sheet goes there, inside its
+  `components` group (`parent` set, placed beside or under the other sheets), never on a flow page. Check the
+  page id of every `add_item`/`move_to_page` before you send it.
+- **Never re-lay a flow someone arranged.** `layout_flow` is for a flow you are building from nothing. To add a
+  screen to an existing flow, give it `x`,`y` and `parent` by hand, next to the screen it follows (a state or a
+  branch goes under it), and leave every other screen where it is. `layout_flow` now refuses, changing nothing,
+  when it would make anything overlap.
+- **Check that it rendered, not only that it exists.** After building or changing screens, `render_frames`, then
+  `check_design {page}`: it reports a screen loading a file that is not there, a component instance that renders
+  with no size (invisible: an inline element ignores width and height), and a page wider than its frame. Open the
+  preview (`.cache/frames/<id>.webp`) of every new frame and look at it before you say it is done. A sheet or screen
+  that is blank or half drawn is a bug to fix, not a result to report.
+- **Polish with Impeccable when the project has it** (`npx impeccable install` is the person's choice: never install it
+  yourself). After the checks above pass, run `/impeccable audit` on the new or changed screens, fix what it reports,
+  then `/impeccable polish`. It judges taste (hierarchy, type, spacing, generic-looking output); `check_design` stays
+  the gate for what is mechanically broken. Do both.
+- **Run `check_layout {page}` after adding or moving screens**, next to `check_arrows`: groups or screens lying
+  on top of each other, or a screen outside its group, must be empty.
 - **A group is one flow.** Frames inside it read left to right; its description holds the flow's rules.
 - **Descriptions are short and specific.** What the frame is, then the rule it must keep. No restating
   what the picture shows.
@@ -86,9 +127,23 @@ Conventions that keep the board readable:
 
 ## Components
 
-A control used in many frames should be a **component**: one definition in `library/<id>.html`
-(registered in `library.json`) with `{{prop}}` placeholders, used by reference. In a frame an instance is a
-marked region of plain html: `<!-- fr:component button variant="primary" label="Save" -->…<!-- /fr:component -->`.
+**Design system first, screens second.** Every reusable piece of UI (button, input, card, list row, top bar,
+navigation bar, tab control, badge, dialog, …) is a **component** before any screen uses it, so the design
+system is the single source of truth and editing one definition changes every screen that uses it.
+
+1. Before building screens, read `list_components` and the tokens (`list_tokens`). Reuse what exists; extend
+   a component with a prop or variant rather than making a near-copy.
+2. Missing pieces: `create_component` first (and `set_token` for any new colour, size or radius it needs),
+   show them on a design-system page with `component_sheet`, then build screens by `use_component`.
+3. In a screen, a control that exists as a component is always an instance, never hand-written markup, and
+   no raw colour, size or font value that belongs in a token. Only one-off layout and content are plain html.
+4. A change to how something looks or behaves everywhere is `update_component` or `set_token`, never an
+   edit repeated across frames. Run `find_candidates` before you finish: repeated markup it lists should be
+   promoted (`promote_component`).
+
+A component is one definition in `library/<id>.html` (registered in `library.json`) with `{{prop}}`
+placeholders, used by reference. In a frame an instance is a marked region of plain html:
+`<!-- fr:component button variant="primary" label="Save" -->…<!-- /fr:component -->`.
 The html between the markers is generated, so never edit it by hand: change the definition (or the instance's
 props) and every frame follows.
 

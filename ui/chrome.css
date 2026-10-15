@@ -138,14 +138,12 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .app[data-side="collapsed"] .side__version { display: none; }
 
 /* ---- stage + floating bits ------------------------------------------------------------------- */
-.stage { position: relative; overflow: hidden; min-width: 0; margin: 10px 10px 10px 0; border-radius: 20px; background: var(--bg); box-shadow: 0 0 0 1px var(--edge); }
+.stage { container-type: inline-size; position: relative; overflow: hidden; min-width: 0; margin: 10px 10px 10px 0; border-radius: 20px; background: var(--bg); box-shadow: 0 0 0 1px var(--edge); }
 .menu-btn { display: none; position: absolute; top: 10px; left: 10px; z-index: 6; background: var(--surface); border: 1px solid var(--edge); border-radius: 999px; box-shadow: var(--float); }
 
-.zoombar {
-  position: absolute; left: 50%; bottom: 18px; z-index: 5; display: flex; align-items: center; gap: 2px; padding: 4px;
-  background: var(--surface); border: 1px solid var(--edge); border-radius: 999px; box-shadow: var(--float);
-  transform: translateX(-50%); animation: lift var(--dur-slow) var(--ease) both;
-}
+/* the floating islands: the view's tools, and beside them comments and chat */
+.dock { position: absolute; left: 50%; bottom: 18px; z-index: 5; display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 8px; width: max-content; max-width: calc(100% - 20px); transform: translateX(-50%); animation: lift var(--dur-slow) var(--ease) both; }
+.zoombar { display: flex; align-items: center; gap: 2px; padding: 4px; background: var(--surface); border: 1px solid var(--edge); border-radius: 999px; box-shadow: var(--float); }
 .zoombar[hidden] { display: none; }
 .zoombar .icon-btn, .zoombar .zoom-pct { border-radius: 999px; }
 .zoom-pct { min-width: 58px; height: 34px; font: 700 13px var(--font-mono); }
@@ -156,9 +154,12 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .warn-btn:active { transform: scale(0.94); }
 .warn-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 
+/* the right-hand column: the detail panel on top and the chat under it, one stack that shares the height (the
+   detail panel scrolls when the chat is open) instead of two floating boxes that could land on each other */
+.rail { position: absolute; top: 14px; right: 14px; bottom: 74px; z-index: 7; width: min(var(--insp-w), calc(100% - 28px)); display: flex; flex-direction: column; gap: 12px; pointer-events: none; }
+.rail > * { pointer-events: auto; }
 .inspector {
-  position: absolute; top: 14px; right: 14px; z-index: 6; width: min(var(--insp-w), calc(100% - 28px));
-  display: flex; flex-direction: column; min-height: 0; max-height: calc(100% - 96px);
+  display: flex; flex-direction: column; min-height: 0; flex: 0 1 auto;
   background: var(--surface); border: 1px solid var(--edge); border-radius: 16px; box-shadow: var(--float);
   animation: slide-in var(--dur) var(--ease) both;
 }
@@ -243,8 +244,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
   .side { background: var(--chrome); }
   .stage { margin: 0; border-radius: 0; box-shadow: none; }
   .menu-btn { display: inline-grid; }
-  .inspector { top: auto; bottom: 76px; left: 10px; right: 10px; width: auto; max-height: 52dvh; }
-  .zoombar { bottom: 12px; }
+  .dock { bottom: 12px; }
 }
 
 /* ---- export ---------------------------------------------------------------------------------- */
@@ -301,3 +301,84 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .player__way--positive { color: var(--pos); border-color: var(--pos); }
 .player__way--negative { color: var(--neg); border-color: var(--neg); }
 .player__end { color: var(--ink-soft); }
+
+/* the chat with the agent */
+/* the chat sits on the right under the detail panel, which gives up the room (it scrolls); on a narrow area the chat is a sheet and wins */
+.stage { --chat-h: min(380px, 42%); }
+.chat { flex: 0 0 auto; margin-top: auto; height: var(--chat-h); display: flex; flex-direction: column; border-radius: 16px; background: var(--surface); box-shadow: 0 0 0 1px var(--edge), 0 12px 36px rgba(22, 22, 26, 0.22); animation: pop-in var(--dur) var(--spring) both; transform-origin: 100% 100%; }
+.chat[hidden] { display: none; }
+.rail:has(.inspector:not([hidden])) .chat { margin-top: 0; }
+.chat__head { display: flex; align-items: center; justify-content: space-between; padding: 10px 8px 6px 14px; font-size: 13px; }
+.chat__list { flex: 1; min-height: 120px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding: 6px 14px; }
+.chat__msg { max-width: 85%; padding: 8px 12px; border-radius: 14px; font-size: 14px; line-height: 1.4; white-space: pre-wrap; overflow-wrap: anywhere; }
+.chat__msg--user { align-self: flex-end; background: var(--accent); color: var(--accent-ink); border-bottom-right-radius: 4px; }
+.chat__msg--agent { align-self: flex-start; background: var(--bg-2); border-bottom-left-radius: 4px; }
+.chat__ctx { margin: 0; padding: 0 14px 4px; font-size: 12px; color: var(--ink-soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.chat__ctx:empty { display: none; }
+.chat__status { margin: 0; padding: 0 14px; min-height: 18px; font-size: 12px; color: var(--ink-soft); }
+.chat__status[data-state="work"]::before { content: ""; display: inline-block; width: 7px; height: 7px; margin-right: 6px; border-radius: 50%; background: var(--accent); animation: agent-work 1.8s ease-out infinite; }
+.chat__status[data-state="idle"] { color: #8a5a00; }
+[data-motion="reduced"] .chat__status::before { animation: none; }
+.chat__form { display: flex; align-items: flex-end; gap: 8px; padding: 10px 12px 12px; }
+.chat__input { flex: 1; min-height: 36px; max-height: 120px; box-sizing: border-box; resize: none; padding: 8px 12px; border: 1px solid var(--edge); border-radius: 12px; background: var(--bg); color: inherit; font: 14px/1.4 var(--font-ui); outline: none; }
+.chat__input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent); }
+.icon-btn[aria-pressed="true"]#chat-btn { background: var(--accent); color: var(--accent-ink); }
+
+/* comments on the canvas: pins ride the world and keep their size at any zoom */
+.notes { position: absolute; left: 0; top: 0; width: 0; height: 0; z-index: 60; }
+.notes[hidden] { display: none; }
+.note-pin { position: absolute; width: 22px; height: 22px; margin: -11px 0 0 -11px; padding: 0; transform: scale(calc(1 / var(--z, 1))); border-radius: 50%; border: 2px solid #fff; background: var(--accent); color: var(--accent-ink); font: 600 11px/1 var(--font-ui); cursor: pointer; box-shadow: var(--float); }
+.view[data-commenting] { cursor: crosshair; }
+/* open comments are with the agent: pins breathe, and a pill above the zoom bar says so */
+.note-pin, .player__pin { animation: agent-work 1.8s ease-out infinite; }
+@keyframes agent-work { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 55%, transparent); } 70%, 100% { box-shadow: 0 0 0 9px transparent; } }
+[data-motion="reduced"] .note-pin, [data-motion="reduced"] .player__pin { animation: none; }
+.agent-status { position: absolute; left: 50%; bottom: 66px; z-index: 5; transform: translateX(-50%); margin: 0; display: flex; align-items: center; gap: 8px; padding: 6px 14px 6px 12px; border-radius: 999px; background: var(--surface); border: 1px solid var(--edge); box-shadow: var(--float); font: 600 12px var(--font-ui); color: var(--ink-soft); white-space: nowrap; }
+.agent-status[hidden] { display: none; }
+.agent-status[data-state="idle"] { color: #8a5a00; border-color: #e0b04a; }
+.agent-status[data-state="idle"]::before, .agent-status[data-state="ask"]::before { animation: none; background: #e0a21b; }
+.agent-status[data-state="ask"] { color: var(--ink); }
+.note-pin--ask { background: #e0a21b; color: #1c1300; animation: none !important; }
+.note-pop__ask { margin: 0; padding: 8px 10px; border-radius: 10px; background: color-mix(in srgb, #e0a21b 16%, transparent); font-size: 13px; line-height: 1.4; }
+.agent-status::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); animation: agent-work 1.8s ease-out infinite; }
+[data-motion="reduced"] .agent-status::before { animation: none; }
+.note-pop__wait { margin: 0; font-size: 12px; color: var(--ink-soft); }
+
+/* the element under the pointer in comment mode, with its tag as a label above it */
+.note-hover { position: absolute; pointer-events: none; box-sizing: border-box; border: calc(2px / var(--z, 1)) solid var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); }
+.note-hover[hidden] { display: none; }
+.note-hover__tag { position: absolute; left: calc(-2px / var(--z, 1)); bottom: 100%; transform-origin: 0 100%; transform: scale(calc(1 / var(--z, 1))); white-space: nowrap; padding: 2px 6px; border-radius: 4px 4px 4px 0; background: var(--accent); color: var(--accent-ink); font: 600 11px/1.3 var(--font-mono); }
+.icon-btn[aria-pressed="true"]#comment-mode { background: var(--accent); color: var(--accent-ink); }
+#comments-vis { position: relative; }
+#comments-vis[data-count]::after { content: attr(data-count); position: absolute; top: 1px; right: 1px; min-width: 14px; padding: 0 3px; box-sizing: border-box; border-radius: 999px; background: var(--accent); color: var(--accent-ink); font: 700 9px/14px var(--font-mono); text-align: center; }
+
+/* comment mode in the player */
+.player__comment[aria-pressed="true"] { color: var(--accent); background: var(--hover); }
+.player__pins { position: absolute; inset: 0; pointer-events: none; }
+.player__pin { position: absolute; pointer-events: auto; width: 22px; height: 22px; padding: 0; border-radius: 50%; border: 2px solid #fff; background: var(--accent); color: var(--accent-ink); font: 600 11px/1 inherit; cursor: pointer; }
+.note-pop { position: fixed; z-index: 10; width: 336px; box-sizing: border-box; padding: 14px; display: grid; gap: 10px; border-radius: 16px; background: var(--surface); color: inherit; box-shadow: 0 0 0 1px var(--edge), 0 12px 36px rgba(22, 22, 26, 0.22); animation: pop-in var(--dur) var(--spring) both; }
+.note-pop__about { display: flex; align-items: baseline; gap: 8px; min-width: 0; font-size: 12px; color: var(--ink-soft); }
+.note-pop__about code { flex: none; max-width: 60%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 2px 7px; border-radius: 6px; background: color-mix(in srgb, var(--accent) 12%, transparent); color: var(--accent); font: 600 11px var(--font-mono); }
+.note-pop__about span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.note-pop__input { width: 100%; min-height: 84px; max-height: 200px; box-sizing: border-box; resize: none; padding: 10px 12px; border: 1px solid var(--edge); border-radius: 10px; background: var(--bg); color: inherit; font: 14px/1.45 var(--font-ui); outline: none; transition: border-color var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease); }
+.note-pop__input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent); }
+.note-pop__text { margin: 0; font-size: 14px; line-height: 1.45; white-space: pre-wrap; }
+.note-pop__msg { margin: 0; color: #b3261e; font-size: 12px; }
+.note-pop__msg:empty { display: none; }
+.note-pop__row { display: flex; align-items: center; justify-content: flex-end; gap: 6px; }
+.note-pop__hint { margin-right: auto; font-size: 11px; color: var(--ink-soft); }
+.note-pop__send { height: 32px; padding: 0 16px; border: 0; border-radius: 999px; background: var(--accent); color: var(--accent-ink); font: 600 13px var(--font-ui); cursor: pointer; transition: opacity var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease); }
+.note-pop__send:disabled { opacity: 0.4; cursor: default; }
+.note-pop__send:not(:disabled):active { transform: scale(0.96); }
+
+/* the status pill sits where the chat opens on a mid-width window; the chat says the same itself */
+@container (max-width: 1010px) { .stage:has(.chat:not([hidden])) .agent-status { display: none; } }
+
+/* a canvas area too narrow for the chat and the detail panel side by side (the sidebar takes its share of the window, so this is about the area, not the window): the chat is a sheet along the bottom and the detail panel steps aside while it is open. After the chat rules above, which it overrides. */
+@container (max-width: 820px) {
+  .rail { left: 10px; right: 10px; top: auto; bottom: 76px; width: auto; }
+  .inspector { max-height: 52dvh; }
+  .chat { height: auto; max-height: 60dvh; }
+  .stage:has(.chat:not([hidden])) .inspector { display: none; }
+}
+.rail:has(.chat:not([hidden])) .inspector__body { -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 28px), transparent); mask-image: linear-gradient(to bottom, #000 calc(100% - 28px), transparent); } /* the detail panel scrolls under the chat: fade its cut edge */

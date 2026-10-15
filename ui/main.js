@@ -8,6 +8,7 @@ import { navigate, onRoute, parse } from './core/router.js';
 import { session } from './core/session.js';
 import { settings } from './core/settings.js';
 import { createCanvas } from './canvas/canvas.js';
+import { createChat } from './panels/chat.js';
 import { createInspector } from './panels/inspector.js';
 import { createLayers } from './panels/layers.js';
 import { createHistory } from './panels/history.js';
@@ -22,6 +23,7 @@ const $ = (id) => document.getElementById(id);
 api.version().then((v) => ($('version').textContent = `v${v}`), () => {});
 const { state } = session;
 let detailClosed = false;
+let commenting = false; // comment mode: a click on a screen leaves a note
 let drawnLines = settings.get().lines; // arrows are only re-routed when this one setting changes
 
 // ---- parts -----------------------------------------------------------------------------------------
@@ -34,6 +36,9 @@ const canvas = createCanvas(
     lineStyle: settings.lineStyle,
     arrowMode: settings.arrowMode,
     onView: (view) => zoombar.show(view),
+    onNote: (note) => api.command('add_note', { project: state.project, page: state.pageId, ...note }).then(() => session.loadNotes()),
+    onNoteReply: (id, text) => api.command('reply_note', { project: state.project, id, text }).then(() => session.loadNotes()),
+    onNoteRemove: (id) => api.command('resolve_note', { project: state.project, id }).then(() => session.loadNotes()),
     onProblems: (list) => zoombar.problems(list),
     onPick: (sel) => session.select(sel, { quiet: true }),
     // A table row that links somewhere ("flows/6_entry") opens that item on that page.
@@ -44,7 +49,14 @@ const canvas = createCanvas(
   },
 );
 
-const zoombar = createZoombar({ warn: $('arrow-warn'), arrows: $('arrows-mode'), out: $('zoom-out'), in: $('zoom-in'), pct: $('zoom-pct'), fit: $('zoom-fit') }, canvas, settings, { onPick: (sel) => session.select(sel) });
+const zoombar = createZoombar({ warn: $('arrow-warn'), arrows: $('arrows-mode'), comment: $('comment-mode'), vis: $('comments-vis'), out: $('zoom-out'), in: $('zoom-in'), pct: $('zoom-pct'), fit: $('zoom-fit') }, canvas, settings, {
+  onPick: (sel) => session.select(sel),
+  onComment: () => ((commenting = !commenting), paintNotes()),
+});
+const chat = createChat(
+  { button: $('chat-btn'), panel: $('chat') },
+  { send: (text) => api.command('send_chat', { project: state.project, text, page: state.pageId, selected: state.sel?.kind === 'item' ? state.sel.id : undefined }).then(() => session.loadChat()) },
+);
 const sidebar = createSidebar(
   { app: $('app'), side: $('side'), pages: $('pages'), projects: $('projects'), menu: $('menu'), close: $('side-close') },
   { onNavigate: (route) => navigate(route) },
@@ -85,6 +97,42 @@ installShortcuts({
   },
 });
 
+// What is happening to the open comments, said plainly so none is ever left looking stuck: the agent has
+// them (a watcher is alive), the agent asked something, or nobody is listening.
+let watching = false;
+function paintStatus(list = state.notes.filter((n) => n.page === state.pageId)) {
+  const el = $('agent-status');
+  const asked = list.filter((n) => n.question).length;
+  const working = list.length - asked;
+  el.hidden = !list.length;
+  if (!list.length) return;
+  el.dataset.state = asked ? 'ask' : watching ? 'work' : 'idle';
+  el.textContent = asked
+    ? `The agent asked ${asked > 1 ? asked + ' questions' : 'a question'} · click the amber pin`
+    : watching
+      ? `Sent to the agent · ${working} comment${working > 1 ? 's' : ''} in progress`
+      : 'Nobody is watching for comments · ask the agent, or run: npx framery watch';
+}
+const beat = async () => {
+  const now = await api.watching();
+  if (now !== watching) ((watching = now), paintStatus(), chat.show(state.chat, watching));
+};
+beat(); // not after the first note or message: that would say nobody is watching for a few seconds
+setInterval(beat, 4000);
+bus.on('chat', (messages) => chat.show(messages, watching));
+
+// Comments on this page: shown when the person wants them or is writing one.
+function paintNotes() {
+  const list = state.notes.filter((n) => n.page === state.pageId);
+  canvas.setNotes({ list, visible: commenting || settings.get().comments === 'show', commenting });
+  zoombar.commenting(commenting);
+  zoombar.count(list.length);
+  paintStatus(list);
+}
+addEventListener('keydown', (event) => event.key === 'Escape' && commenting && ((commenting = false), paintNotes()));
+bus.on('notes', paintNotes);
+bus.on('settings', paintNotes);
+
 // The address names a frame: a component is addressed by the frame it sits in.
 const onCanvas = (sel) => (sel?.kind === 'component' ? { kind: 'item', id: sel.frame } : sel);
 
@@ -105,6 +153,7 @@ bus.on('page', ({ page, fresh }) => {
   layers.show(page, `${state.project}.${state.pageId}`);
   layers.setComponents(state.components);
   canvas.show(page, { fresh, viewKey: `${state.project}.${state.pageId}` });
+  paintNotes();
   canvas.select(state.sel);
   layers.select(state.sel);
   if (state.sel && !detailClosed) inspector.show(state.sel);
@@ -113,6 +162,8 @@ bus.on('page', ({ page, fresh }) => {
 
 bus.on('select', ({ sel, focus }) => {
   detailClosed = false;
+  const picked = sel?.kind === 'item' ? session.item(sel.id) : null;
+  chat.setContext(picked ? [picked.step, picked.title ?? picked.id].filter(Boolean).join(' ') : '');
   canvas.select(sel, { focus });
   layers.select(sel);
   if (sel && state.page) inspector.show(sel);

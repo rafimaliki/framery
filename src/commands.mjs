@@ -2,12 +2,15 @@
 // carries its own description and input schema, so the tool list an agent sees is this table.
 
 import { existsSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import { checkName, fail } from './store.mjs';
-import { DEVICES, arrange, find, fitGroup, layoutFlow, members, outline, place, refElement, refItem, withMembers } from './layout.mjs';
+import { DEVICES, arrange, collisions, find, fitGroup, layoutFlow, members, outline, place, refElement, refItem, withMembers } from './layout.mjs';
 import * as tables from './tables.mjs';
 import { cmd, project, t, where } from './kit.mjs';
 import { componentCommands } from './commands-components.mjs';
 import { historyCommands } from './commands-history.mjs';
+import { noteCommands } from './commands-notes.mjs';
+import { chatCommands } from './commands-chat.mjs';
 import { begin, record, snapshot } from './history.mjs';
 import { checkArrows } from '../ui/canvas/check.js';
 
@@ -388,7 +391,7 @@ export const commands = {
   ),
 
   layout_flow: cmd(
-    'Lay a flow out from its arrows, instead of placing items by hand: the happy path in one row (positive arrows first at a branch), every state or failure directly under the screen it belongs to. Give a group (its members are laid out and it is refit) or ids. Returns what check_arrows then says, which should be nothing.',
+    'Lay a flow out from its arrows, instead of placing items by hand: the happy path in one row (positive arrows first at a branch), every state or failure directly under the screen it belongs to. Give a group (its members are laid out and it is refit) or ids. Refuses, changing nothing, if that would make anything overlap, so do not use it to re-lay a flow that is already arranged: place a new screen by hand. Returns what check_arrows then says, which should be nothing.',
     { ...where, group: t.str('lay out the members of this group'), ids: t.ids, gap: t.num('between columns, default 140'), rowGap: t.num('between rows, default 160'), x: t.num('left edge; default where the items are'), y: t.num('top edge') },
     [],
     async (store, a) => {
@@ -396,9 +399,25 @@ export const commands = {
       const out = edit(store, a, (page) => {
         const ids = a.group ? (find(page, a.group), members(page, a.group).map((i) => i.id)) : a.ids;
         if (!ids.length) fail(`group ${a.group} is empty`);
-        return { moved: layoutFlow(page, ids, a).map((i) => i.id) };
+        const before = collisions(page);
+        const moved = layoutFlow(page, ids, a).map((i) => i.id);
+        // a flow someone already arranged is not re-laid at the cost of the rest of the board
+        const worse = collisions(page).filter((c) => !before.includes(c));
+        if (worse.length) fail(`layout_flow would break the board (${worse.join('; ')}). Nothing was changed. Do not re-lay an existing flow: place the new screen by hand next to its neighbours with x, y and parent (move_items / update_item), then run check_layout.`);
+        return { moved };
       });
       return { ...out, ...(await commands.check_arrows.run(store, { project: a.project, page: out.page })) };
+    },
+  ),
+
+  check_layout: cmd(
+    'Layout problems on a page: groups or screens lying on top of each other, a screen sticking out of its group. Run it after adding or moving screens; it must be empty. (check_arrows is about arrows, this is about the boxes.)',
+    where,
+    [],
+    (store, a) => {
+      const project = store.name(a.project);
+      const id = pageId(store, project, a.page);
+      return { page: id, problems: collisions(store.page(project, id)) };
     },
   ),
 
@@ -531,7 +550,7 @@ export const commands = {
   ),
 
   check_design: cmd(
-    'Design problems on a page that a person would hit: a tap target under 44x44 on a phone or tablet frame (any control an arrow starts on), text below WCAG contrast (4.5:1, 3:1 when large), and arrows anchored to an element the frame no longer has. Contrast and sizes come from render_frames; frames it has not measured are listed as unmeasured.',
+    'Design problems on a page that a person would hit: a screen that loads a file that does not exist, a component instance that renders with no size (invisible), a page wider than its frame, a tap target under 44x44 on a phone or tablet frame (any control an arrow starts on), text below WCAG contrast (4.5:1, 3:1 when large), and arrows anchored to an element the frame no longer has. Contrast and sizes come from render_frames; frames it has not measured are listed as unmeasured.',
     { ...where },
     [],
     (store, a) => {
@@ -567,6 +586,26 @@ export const commands = {
         }
       }
       for (const frame of items.filter((i) => i.type === 'frame')) {
+        // a stylesheet, script or image the page loads that is not there: the page renders without it
+        const file = store.inside(name, frame.src);
+        for (const m of existsSync(file) ? readFileSync(file, 'utf8').matchAll(/<(?:link|script|img)\b[^>]*?\b(?:href|src)="([^"]+)"/g) : []) {
+          const ref = m[1].split(/[?#]/)[0];
+          if (!ref || /^([a-z][a-z0-9+.-]*:|\/)/i.test(ref)) continue;
+          let missing = false;
+          try {
+            missing = !existsSync(store.inside(name, join(dirname(frame.src), ref)));
+          } catch {
+            missing = true; // it points out of the project
+          }
+          if (missing) problems.push({ item: frame.id, problem: `${frame.src} loads ${ref}, which does not exist, so the page renders without it` });
+        }
+        const seen = measured(frame.id);
+        // an instance with no size is invisible, and a page wider than its frame is cut off
+        for (const component of seen?.collapsed ?? []) {
+          problems.push({ item: frame.id, problem: `an instance of "${component}" in ${frame.src} renders with no size, so it is invisible (an inline element ignores width and height: give it display: inline-block or block)` });
+        }
+        if (seen?.overflow > 1) problems.push({ item: frame.id, problem: `${frame.src} is ${seen.overflow}px wider than its frame, so content is cut off or scrolls sideways` });
+        if (seen && (seen.overflow === undefined || seen.collapsed === undefined)) unmeasured.add(frame.id);
         const found = measured(frame.id)?.contrast;
         if (!found) unmeasured.add(frame.id);
         const said = new Set(); // the same text in the same colours, said once per frame
@@ -721,6 +760,8 @@ export const commands = {
   ),
 
   ...componentCommands,
+  ...noteCommands,
+  ...chatCommands,
   ...historyCommands,
 };
 

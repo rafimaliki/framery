@@ -6,10 +6,13 @@
 
 import { api } from '../core/api.js';
 import { h, icon } from '../core/dom.js';
+import { createNotePopup, describe, nameOf } from '../core/notes.js';
 
 const end = (ref) => ref.split('#')[0];
 const element = (ref) => ref.split('#')[1] ?? null;
 const PAD = 48; // room around the screen inside the stage
+
+
 
 // Where a group's flow starts: the one item inside it (at any depth) with arrows out and none in. None,
 // or more than one, and the group is not one playable flow.
@@ -30,13 +33,18 @@ export function createPlayer({ project, page, pageId, rev, onExit = () => {}, on
   const back = h('button', { class: 'icon-btn', type: 'button', 'aria-label': 'Back', title: 'Back', html: icon.back });
   const close = h('button', { class: 'icon-btn', type: 'button', 'aria-label': 'Stop playing', title: 'Stop playing (Esc)', html: icon.close });
   const tab = h('a', { class: 'icon-btn', target: '_blank', rel: 'noopener', 'aria-label': 'Play in a new tab', title: 'Play in a new tab', html: icon.external });
+  const comment = h('button', { class: 'text-btn player__comment', type: 'button', 'aria-pressed': 'false', title: 'Comment on a part of the screen' }, 'Comment');
   const stage = h('div', { class: 'player__stage' });
   const ways = h('div', { class: 'player__ways' });
-  const dialog = h('dialog', { class: `player${own ? ' player--tab' : ''}`, 'aria-label': 'Play the flow' }, h('header', { class: 'player__head' }, back, title, ...(own ? [] : [tab, close])), stage, ways);
+  const dialog = h('dialog', { class: `player${own ? ' player--tab' : ''}`, 'aria-label': 'Play the flow' }, h('header', { class: 'player__head' }, back, title, comment, ...(own ? [] : [tab, close])), stage, ways);
   if (own) dialog.addEventListener('cancel', (event) => event.preventDefault()); // Esc would leave an empty tab
   document.body.append(dialog);
   let trail = []; // ids played, the last one showing
   let fit = () => {};
+  let noting = false; // comment mode
+  let shown = 0; // which screen is showing, so a slow reply for the last one is dropped
+  const popup = createNotePopup(dialog);
+  const closePopup = popup.close;
 
   const item = (id) => page().items.find((i) => i.id === id);
   const out = (id) => page().arrows.filter((a) => end(a.from) === id);
@@ -64,6 +72,8 @@ export function createPlayer({ project, page, pageId, rev, onExit = () => {}, on
 
   function show(id) {
     const it = item(id);
+    const mine = ++shown;
+    closePopup();
     back.disabled = trail.length < 2;
     title.replaceChildren(...(it?.step ? [h('span', { class: 'inspector__step' }, `${it.step} `)] : []), it?.title ?? id);
     tab.href = `/play.html?${new URLSearchParams({ project: project(), page: pageId(), start: id })}`;
@@ -80,19 +90,76 @@ export function createPlayer({ project, page, pageId, rev, onExit = () => {}, on
     const frame = h('iframe', { class: 'player__frame', title: it.title ?? it.id, src: api.file(project(), it.src, rev()) });
     frame.style.width = `${it.w}px`;
     frame.style.height = `${it.h}px`;
-    const box = h('div', { class: 'player__screen' }, frame);
+    const pins = h('div', { class: 'player__pins' });
+    const box = h('div', { class: 'player__screen' }, frame, pins);
     stage.replaceChildren(box);
+    let doc = null;
+    let notes = [];
+    let scale = 1;
+
+    // Just under an element (r is its box in the screen's own pixels), in window pixels.
+    const under = (r) => {
+      const f = frame.getBoundingClientRect();
+      return { left: f.left + r.left * scale, top: f.top + r.bottom * scale + 6 };
+    };
+
+    function paintPins() {
+      pins.replaceChildren();
+      if (!doc) return;
+      notes.forEach((note, n) => {
+        const el = note.selector && doc.querySelector(note.selector);
+        if (!el) return;
+        const r = el.getBoundingClientRect();
+        const pin = h('button', { class: `player__pin${note.question ? ' note-pin--ask' : ''}`, type: 'button', title: note.text }, String(n + 1));
+        pin.style.left = `${Math.max(0, r.left * scale - 11)}px`;
+        pin.style.top = `${Math.max(0, r.top * scale - 11)}px`;
+        const drop = () => api.command('resolve_note', { project: project(), id: note.id }).then(() => ((notes = notes.filter((x) => x !== note)), paintPins()));
+        pin.addEventListener('click', () => popup.show(under(r), note, drop, (text) => api.command('reply_note', { project: project(), id: note.id, text }).then((next) => ((notes = notes.map((x) => (x === note ? next : x))), paintPins()))));
+        pins.append(pin);
+      });
+    }
+
     fit = () => {
-      const s = Math.min(1, (stage.clientWidth - PAD) / it.w, (stage.clientHeight - PAD) / it.h);
-      frame.style.transform = `scale(${s})`;
-      box.style.width = `${it.w * s}px`;
-      box.style.height = `${it.h * s}px`;
+      scale = Math.min(1, (stage.clientWidth - PAD) / it.w, (stage.clientHeight - PAD) / it.h);
+      frame.style.transform = `scale(${scale})`;
+      box.style.width = `${it.w * scale}px`;
+      box.style.height = `${it.h * scale}px`;
+      closePopup();
+      paintPins();
     };
     fit();
+    api.command('list_notes', { project: project(), page: pageId(), item: id }).then((list) => mine === shown && ((notes = list), paintPins()), () => {});
+
+    function noteOn(el) {
+      const found = describe(el);
+      popup.compose(
+        under(el.getBoundingClientRect()),
+        (text) => api.command('add_note', { project: project(), page: pageId(), item: id, text, ...found }).then((note) => mine === shown && (notes.push(note), paintPins())),
+        { name: nameOf(el), label: found.label },
+      );
+    }
+
     frame.addEventListener('load', () => {
-      const doc = frame.contentDocument;
+      doc = frame.contentDocument;
       if (!doc) return;
-      doc.head.append(Object.assign(doc.createElement('style'), { textContent: '[data-fr-hot]{cursor:pointer}[data-fr-flash] [data-fr-hot]{outline:3px solid rgba(122,31,92,.75);outline-offset:2px;transition:outline-color .6s}' }));
+      paintPins();
+      let over = null;
+      const clear = () => (over?.removeAttribute('data-fr-pick'), (over = null));
+      doc.addEventListener('mouseover', (event) => noting && (clear(), (over = event.target).setAttribute('data-fr-pick', '')));
+      doc.addEventListener('mouseleave', clear);
+      // capture, so in comment mode nothing on the page (a link, a hot control) fires
+      doc.addEventListener(
+        'click',
+        (event) => {
+          if (!noting) return;
+          event.preventDefault();
+          event.stopPropagation();
+          clear();
+          noteOn(event.target);
+        },
+        true,
+      );
+      doc.head.append(Object.assign(doc.createElement('style'), { textContent: '[data-fr-pick]{outline:2px solid rgba(122,31,92,.9)!important;outline-offset:1px;cursor:crosshair}[data-fr-hot]{cursor:pointer}[data-fr-flash] [data-fr-hot]{outline:3px solid rgba(122,31,92,.75);outline-offset:2px;transition:outline-color .6s}' }));
       for (const name of hot.keys()) doc.querySelector(`[data-anchor="${CSS.escape(name)}"],[id="${CSS.escape(name)}"]`)?.setAttribute('data-fr-hot', '');
       doc.addEventListener('click', (event) => {
         for (let el = event.target; el && el !== doc.body; el = el.parentElement) {
@@ -109,13 +176,18 @@ export function createPlayer({ project, page, pageId, rev, onExit = () => {}, on
     });
   }
 
+  comment.addEventListener('click', () => {
+    noting = !noting;
+    comment.setAttribute('aria-pressed', String(noting));
+    closePopup();
+  });
   back.addEventListener('click', () => {
     if (trail.length < 2) return;
     trail.pop();
     show(trail.at(-1));
   });
   close.addEventListener('click', () => dialog.close());
-  dialog.addEventListener('close', () => onExit(trail.at(-1)));
+  dialog.addEventListener('close', () => (closePopup(), onExit(trail.at(-1))));
   addEventListener('resize', () => dialog.open && fit());
 
   return {

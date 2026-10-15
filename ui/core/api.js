@@ -9,6 +9,7 @@ async function json(url, init) {
 
 export const api = {
   projects: () => json('/api/projects'),
+  watching: () => json('/api/watching').then((r) => r.watching, () => false), // is a `framery watch` running
   version: () => json('/api/version').then((r) => r.version),
   project: (name) => json(`/p/${name}/project.json`),
   components: (name) => json(`/api/components?project=${encodeURIComponent(name)}`).catch(() => []),

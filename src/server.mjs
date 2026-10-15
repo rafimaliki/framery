@@ -3,7 +3,7 @@
 // 127.0.0.1, refuses a Host it does not own, and takes writes only as same-origin JSON.
 
 import { createServer } from 'node:http';
-import { createReadStream, existsSync, mkdirSync, statSync, watch, writeFileSync } from 'node:fs';
+import { createReadStream, existsSync, mkdirSync, readFileSync, statSync, watch, writeFileSync } from 'node:fs';
 import { createGzip } from 'node:zlib';
 import { extname, join, normalize, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -91,6 +91,8 @@ export function serve({ root, port = 4173, strict = false, autoRender = true, qu
     if (rest[0] === '.cache') return { type: 'cache', project };
     if (rest[0] === '.history') return path.startsWith('.history/lock') ? null : { type: 'history', project };
     if (path === 'project.json') return { type: 'project', project };
+    if (path === 'notes.json') return { type: 'notes', project };
+    if (path === 'chat.json') return { type: 'chat', project };
     if (path === 'library.json' || rest[0] === 'library') return { type: 'library', project };
     if (rest[0] === 'pages') return { type: 'page', project, page: path.replace(/^pages\//, '').replace(/\.json$/, '') };
     if (/\.(css|js)$/.test(path)) return { type: 'assets', project, path };
@@ -203,6 +205,17 @@ export function serve({ root, port = 4173, strict = false, autoRender = true, qu
     }
 
     if (path === '/api/version') return json(response, 200, { version: version() });
+
+    // is a `framery watch` alive: its heartbeat is a few seconds old at most
+    if (path === '/api/watching') {
+      let at = 0;
+      try {
+        at = JSON.parse(readFileSync(join(store.root, '.cache', 'watch.json'), 'utf8')).at;
+      } catch {
+        // never started
+      }
+      return json(response, 200, { watching: Date.now() - at < 6000 });
+    }
 
     // `framery stop`: close, once the reply is out. Same guard as a command: same-origin JSON only.
     if (path === '/api/stop') {
