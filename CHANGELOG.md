@@ -3,7 +3,7 @@
 Releases are git tags (`v0.1.0`). Nothing updates by itself: you pick a version, see "Updating" in the README.
 A release that changes the data format says so here and ships its migration; until then every project is format 1.
 
-## Unreleased
+## 0.5.0
 
 Comments, chat and render safety. Upgrading from 0.4.x needs no migration: the data format is still 1, and every
 existing project opens unchanged (rehearsed: a project made by 0.4.1, opened by this version, its design files byte for byte
