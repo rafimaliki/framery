@@ -3,6 +3,12 @@
 Releases are git tags (`v0.1.0`). Nothing updates by itself: you pick a version, see "Updating" in the README.
 A release that changes the data format says so here and ships its migration; until then every project is format 1.
 
+## Unreleased
+
+- `framery stop` ends the studio (and a `framery watch`) properly: it asks the studio to close over its own address, never
+  kills a process it has not confirmed is framery, and clears the pid files a dead process left behind. The studio also
+  removes its address file when it ends (Ctrl+C or a termination). The skill tells agents to use it instead of killing a task.
+
 ## 0.4.1
 
 Studio:
