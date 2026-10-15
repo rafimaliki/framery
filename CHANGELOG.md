@@ -3,7 +3,32 @@
 Releases are git tags (`v0.1.0`). Nothing updates by itself: you pick a version, see "Updating" in the README.
 A release that changes the data format says so here and ships its migration; until then every project is format 1.
 
-## 0.4.1
+## Unreleased
+
+Comments, chat and render safety. Upgrading from 0.4.x needs no migration: the data format is still 1, and every
+existing project opens unchanged (rehearsed: a project made by 0.4.1, opened by this version, its design files byte for byte
+the same). After installing, run `framery init` once to refresh the skill (`framery doctor` says if it is stale) and restart the studio.
+
+Studio:
+- Comment on any element of a screen, in Play or on the canvas: the element under the pointer is outlined, a click opens a note
+  box, pins show where notes are, and an eye toggle hides them. A chat in the right-hand column (under the detail panel) talks to
+  the agent; it knows which screen is selected. The studio says whether the agent has a request, asked a question (amber pin), or
+  nobody is watching. Comments and chat island: a second island beside the zoom bar.
+- Notes and chat live in `notes.json` and `chat.json` in the project, created on first use. They are not design: the undo trail ignores them.
+
+New tools and commands:
+- `list_notes`, `resolve_note`, `ask_note`, `reply_note`, `add_note`; `send_chat`, `list_chat`, `reply_chat`; `check_layout`.
+- `framery watch [--once]` prints a line for each comment or chat message waiting for an agent, so any agent that can run a background
+  command picks them up without a manual step.
+
+Changes you may notice:
+- `check_design` also reports a screen that loads a file that does not exist, a component instance that renders with no size, and a
+  page wider than its frame. It can report problems that were always there. Cached renders are measured again once.
+- `layout_flow` refuses, changing nothing, when re-laying a flow would make anything overlap. Existing overlaps do not block it.
+- `component_sheet` links only the stylesheets and scripts the project has.
+- The skill: design system and components first, one page per kind of thing, never re-lay an arranged flow, check that things
+  rendered, watch for comments and chat by default.
+
 
 Studio:
 - A lighter look: white chrome with a plum accent (soft plum in the dark theme) in place of orange, and a new icon.

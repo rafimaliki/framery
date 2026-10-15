@@ -43,6 +43,9 @@ For a CHAT line do what is asked, within the design data (screens, components, t
 need, even to decline. It answers every message sent so far. The studio tells the person "the agent is on it" until
 you resolve, so always resolve, even when you chose not to change anything (say why in your reply).
 
+If `watch` (or `list_notes`, `list_chat`, `check_layout`) is not known, the installed framery is older than this skill:
+tell the person to update it (see Updating), then carry on without it. Do not poll the files or the studio instead.
+
 Never leave a comment hanging. If it is too vague to act on, or you disagree with it, call
 `ask_note {id, question}`: the question appears on its pin and the person answers there (the answer returns
 through `watch` as the same comment with `Q:`/`A:` lines added). Do not ask in the chat instead, and do not

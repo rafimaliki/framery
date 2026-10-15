@@ -100,6 +100,8 @@ npx framery doctor                                        # confirm
 
 - **Releases are git tags.** Pin the one you want; the install line above is the whole upgrade.
   `npm ls framery` shows what you have.
+- **Restart a running studio** after installing: it keeps running the version it started with. Cached previews are
+  measured again once, by themselves; new files (comments, chat) appear only when first used.
 - **Your design is yours.** An upgrade replaces the app in `node_modules` and, with `init`, the skill copy.
   It does not rewrite `framery/`. A release that changes the data format says so in the changelog and
   ships its migration; a project saved by a newer version than the one installed is refused with a clear message,

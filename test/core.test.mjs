@@ -597,3 +597,27 @@ test('check_design: a screen that loads a file that is not there is reported', a
   const { problems } = await call('check_design', {});
   assert.deepEqual(problems.filter((p) => /does not exist/.test(p.problem)).map((p) => p.problem), ['a.html loads missing.css, which does not exist, so the page renders without it']);
 });
+
+test('an older project (no notes or chat, caches from before) works unchanged, and comments stay out of the undo trail', async () => {
+  const { call, store, project } = scratch();
+  await call('add_item', { type: 'frame', id: 'a', title: 'A', src: 'a.html', device: 'phone' });
+  // what 0.4.1 left in the cache: measured, but with no overflow or collapsed fields
+  mkdirSync(join(store.dir(project), '.cache', 'anchors'), { recursive: true });
+  writeFileSync(join(store.dir(project), '.cache', 'anchors', 'a.json'), JSON.stringify({ src: 1, deps: 1, w: 390, h: 844, anchors: {}, parts: {}, contrast: [] }));
+  assert.equal(existsSync(join(store.dir(project), 'notes.json')), false);
+  assert.deepEqual(await call('list_notes', {}), []);
+  assert.deepEqual(await run(store, 'list_chat', { project }), { messages: [], pending: [] });
+  const design = await call('check_design', {});
+  assert.deepEqual(design.problems, [], 'no false alarms from the fields the old cache lacks');
+  assert.deepEqual(design.unmeasured, ['a'], 'it asks for one render instead');
+  assert.deepEqual((await call('check_layout', {})).problems, []);
+
+  // comments and chat are not design: a restore leaves them alone
+  const note = await call('add_note', { item: 'a', text: 'keep me' });
+  await run(store, 'send_chat', { project, text: 'hello' });
+  await run(store, 'checkpoint', { project, label: 'with a note' });
+  await call('move_items', { ids: ['a'], dx: 50 });
+  await run(store, 'restore', { project, n: 1 });
+  assert.deepEqual((await call('list_notes', {})).map((n) => n.id), [note.id], 'restoring the design leaves the comments');
+  assert.equal((await run(store, 'list_chat', { project })).messages.length, 1);
+});
