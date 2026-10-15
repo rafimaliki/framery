@@ -3,6 +3,11 @@
 Releases are git tags (`v0.1.0`). Nothing updates by itself: you pick a version, see "Updating" in the README.
 A release that changes the data format says so here and ships its migration; until then every project is format 1.
 
+## Unreleased
+
+- Tooltips on the floating tool islands (the zoom bar): a styled label above the button after a short hover, at once on keyboard
+  focus, instead of the browser's slow native one. The words are the button's title or label.
+
 ## 0.4.1
 
 Studio:

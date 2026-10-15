@@ -518,3 +518,20 @@ test('doctor: a fresh init is in step; a stale skill is reported; a newer data f
   assert.match(doctor({ dir: root }).problems.join(), /newer framery/);
   assert.throws(() => store.project(name), /newer framery/);
 });
+
+test('tooltips: the text comes from the title, else the label; the tip stays in the window and flips below when there is no room', async () => {
+  const { tipText, tipSpot } = await import('../ui/panels/tooltip.js');
+  const el = (attrs) => ({ getAttribute: (k) => attrs[k] ?? null, dataset: { tip: attrs.tip } });
+  assert.equal(tipText(el({ title: 'New', tip: 'Old', 'aria-label': 'Label' })), 'New', 'a title just set wins');
+  assert.equal(tipText(el({ tip: 'Kept', 'aria-label': 'Label' })), 'Kept');
+  assert.equal(tipText(el({ 'aria-label': 'Zoom out' })), 'Zoom out');
+  assert.equal(tipText(el({})), '');
+
+  const view = { w: 1000, h: 800 };
+  const mid = tipSpot({ anchor: { left: 480, top: 700, width: 40, height: 40 }, tip: { w: 100, h: 28 }, view });
+  assert.deepEqual([mid.left, mid.top, mid.below], [450, 664, false], 'centred, above');
+  assert.equal(tipSpot({ anchor: { left: 0, top: 700, width: 40, height: 40 }, tip: { w: 100, h: 28 }, view }).left, 8, 'kept off the left edge');
+  assert.equal(tipSpot({ anchor: { left: 990, top: 700, width: 40, height: 40 }, tip: { w: 100, h: 28 }, view }).left, 892, 'kept off the right edge');
+  const top = tipSpot({ anchor: { left: 480, top: 10, width: 40, height: 40 }, tip: { w: 100, h: 28 }, view });
+  assert.deepEqual([top.top, top.below], [58, true], 'flipped below the button');
+});

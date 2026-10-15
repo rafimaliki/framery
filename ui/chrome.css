@@ -147,6 +147,9 @@ button { font: inherit; color: inherit; cursor: pointer; }
   transform: translateX(-50%); animation: lift var(--dur-slow) var(--ease) both;
 }
 .zoombar[hidden] { display: none; }
+/* the tooltip of a tool island's button: a dark label that reads against the light and the dark theme alike */
+.tip { position: fixed; z-index: 100; max-width: 240px; padding: 6px 10px; border-radius: 8px; background: var(--ink); color: var(--bg); font: 600 12px/1.35 var(--font-ui); pointer-events: none; opacity: 0; transform: translateY(2px); transition: opacity var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease); }
+.tip[data-show] { opacity: 1; transform: none; }
 .zoombar .icon-btn, .zoombar .zoom-pct { border-radius: 999px; }
 .zoom-pct { min-width: 58px; height: 34px; font: 700 13px var(--font-mono); }
 /* arrows that cross, overlap or cut through an item: how many, and a click steps through them */
