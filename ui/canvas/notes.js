@@ -5,10 +5,7 @@
 
 import { h } from '../../core/dom.js';
 import { api } from '../../core/api.js';
-import { createNotePopup, describe } from '../../core/notes.js';
-
-// "div#save.btn.btn--primary": enough to tell which part of the html is under the pointer
-const nameOf = (el) => el.tagName.toLowerCase() + (el.id ? `#${el.id}` : '') + [...el.classList].slice(0, 2).map((c) => `.${c}`).join('');
+import { createNotePopup, describe, nameOf } from '../../core/notes.js';
 
 export function createCanvasNotes(world, view, { project, frameRev, page, liveDoc, toWorld, onAdd, onRemove }) {
   const layer = h('div', { class: 'notes' });
@@ -114,8 +111,9 @@ export function createCanvasNotes(world, view, { project, frameRev, page, liveDo
       const frame = frameAt(x, y);
       const doc = frame && (await docOf(frame).catch(() => null));
       if (!doc) return;
-      const found = describe(elementAt(doc, x - frame.x, y - frame.y));
-      popup.compose({ left: at.x, top: at.y + 12 }, (text) => onAdd({ item: frame.id, text, ...found }));
+      const el = elementAt(doc, x - frame.x, y - frame.y);
+      const found = describe(el);
+      popup.compose({ left: at.x, top: at.y + 12 }, (text) => onAdd({ item: frame.id, text, ...found }), { name: nameOf(el), label: found.label });
     },
   };
 }

@@ -319,9 +319,17 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .player__comment[aria-pressed="true"] { color: var(--accent); background: var(--hover); }
 .player__pins { position: absolute; inset: 0; pointer-events: none; }
 .player__pin { position: absolute; pointer-events: auto; width: 22px; height: 22px; padding: 0; border-radius: 50%; border: 2px solid #fff; background: var(--accent); color: var(--accent-ink); font: 600 11px/1 inherit; cursor: pointer; }
-.note-pop { position: fixed; z-index: 10; width: 280px; box-sizing: border-box; padding: 10px; display: grid; gap: 8px; border-radius: 12px; background: var(--surface); color: inherit; box-shadow: 0 0 0 1px var(--edge), var(--float); }
-.note-pop__input { width: 100%; box-sizing: border-box; resize: vertical; font: inherit; }
-.note-pop__text { margin: 0; white-space: pre-wrap; }
+.note-pop { position: fixed; z-index: 10; width: 336px; box-sizing: border-box; padding: 14px; display: grid; gap: 10px; border-radius: 16px; background: var(--surface); color: inherit; box-shadow: 0 0 0 1px var(--edge), 0 12px 36px rgba(22, 22, 26, 0.22); animation: pop-in var(--dur) var(--spring) both; }
+.note-pop__about { display: flex; align-items: baseline; gap: 8px; min-width: 0; font-size: 12px; color: var(--ink-soft); }
+.note-pop__about code { flex: none; max-width: 60%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 2px 7px; border-radius: 6px; background: color-mix(in srgb, var(--accent) 12%, transparent); color: var(--accent); font: 600 11px var(--font-mono); }
+.note-pop__about span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.note-pop__input { width: 100%; min-height: 84px; max-height: 200px; box-sizing: border-box; resize: none; padding: 10px 12px; border: 1px solid var(--edge); border-radius: 10px; background: var(--bg); color: inherit; font: 14px/1.45 var(--font-ui); outline: none; transition: border-color var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease); }
+.note-pop__input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent); }
+.note-pop__text { margin: 0; font-size: 14px; line-height: 1.45; white-space: pre-wrap; }
 .note-pop__msg { margin: 0; color: #b3261e; font-size: 12px; }
 .note-pop__msg:empty { display: none; }
-.note-pop__row { display: flex; justify-content: flex-end; gap: 8px; }
+.note-pop__row { display: flex; align-items: center; justify-content: flex-end; gap: 6px; }
+.note-pop__hint { margin-right: auto; font-size: 11px; color: var(--ink-soft); }
+.note-pop__send { height: 32px; padding: 0 16px; border: 0; border-radius: 999px; background: var(--accent); color: var(--accent-ink); font: 600 13px var(--font-ui); cursor: pointer; transition: opacity var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease); }
+.note-pop__send:disabled { opacity: 0.4; cursor: default; }
+.note-pop__send:not(:disabled):active { transform: scale(0.96); }

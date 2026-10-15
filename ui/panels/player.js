@@ -6,7 +6,7 @@
 
 import { api } from '../core/api.js';
 import { h, icon } from '../core/dom.js';
-import { createNotePopup, describe } from '../core/notes.js';
+import { createNotePopup, describe, nameOf } from '../core/notes.js';
 
 const end = (ref) => ref.split('#')[0];
 const element = (ref) => ref.split('#')[1] ?? null;
@@ -131,8 +131,11 @@ export function createPlayer({ project, page, pageId, rev, onExit = () => {}, on
     api.command('list_notes', { project: project(), page: pageId(), item: id }).then((list) => mine === shown && ((notes = list), paintPins()), () => {});
 
     function noteOn(el) {
-      popup.compose(under(el.getBoundingClientRect()), (text) =>
-        api.command('add_note', { project: project(), page: pageId(), item: id, text, ...describe(el) }).then((note) => mine === shown && (notes.push(note), paintPins())),
+      const found = describe(el);
+      popup.compose(
+        under(el.getBoundingClientRect()),
+        (text) => api.command('add_note', { project: project(), page: pageId(), item: id, text, ...found }).then((note) => mine === shown && (notes.push(note), paintPins())),
+        { name: nameOf(el), label: found.label },
       );
     }
 
