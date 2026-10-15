@@ -146,7 +146,9 @@ const MEASURE = `(async () => {
     const need = size >= 24 || (size >= 18.66 && +style.fontWeight >= 700) ? 3 : 4.5;
     if (ratio < need) contrast.push({ text: own.slice(0, 40), ratio: q(ratio), need, fg: hex(fg), bg: hex(bg), box: [q(r.x), q(r.y + scrollY), q(r.width), q(r.height)] });
   }
-  return { height, anchors, parts, contrast };
+  // content wider than the frame is cut off, or scrolls sideways
+  const overflow = Math.max(0, document.documentElement.scrollWidth - document.documentElement.clientWidth);
+  return { height, anchors, parts, contrast, overflow };
 })()`;
 
 async function shoot(cdp, session, file, frame) {
@@ -170,7 +172,7 @@ async function shoot(cdp, session, file, frame) {
   const height = frame.autoHeight && measured.height > 0 ? measured.height : frame.h;
   if (height !== probe) await send('Emulation.setDeviceMetricsOverride', { width: frame.w, height, deviceScaleFactor: 1, mobile: false });
   const { data } = await send('Page.captureScreenshot', { format: 'webp', quality: 72, clip: { x: 0, y: 0, width: frame.w, height, scale: SCALE } });
-  return { height, anchors: measured.anchors, parts: measured.parts, contrast: measured.contrast, image: Buffer.from(data, 'base64') };
+  return { height, anchors: measured.anchors, parts: measured.parts, contrast: measured.contrast, overflow: measured.overflow, image: Buffer.from(data, 'base64') };
 }
 
 const depsMtime = (store, project) => {
@@ -195,7 +197,7 @@ export async function render(store, args = {}, onProgress = () => {}) {
       const meta = store.inside(project, `.cache/anchors/${item.id}.json`);
       const known = existsSync(meta) ? JSON.parse(readFileSync(meta, 'utf8')) : null;
       const srcTime = store.mtime(store.inside(project, item.src));
-      const fresh = known && known.contrast && known.src === srcTime && known.deps === deps && known.w === item.w && known.h === item.h && existsSync(store.inside(project, `.cache/frames/${item.id}.webp`));
+      const fresh = known && known.contrast && known.overflow !== undefined && known.src === srcTime && known.deps === deps && known.w === item.w && known.h === item.h && existsSync(store.inside(project, `.cache/frames/${item.id}.webp`));
       if (fresh && !args.force) skipped++;
       else todo.push({ page: pageName, item, srcTime });
     }
@@ -223,7 +225,7 @@ export async function render(store, args = {}, onProgress = () => {}) {
           const out = await shoot(cdp, sessionId, store.inside(project, item.src), item);
           writeFileSync(store.inside(project, `.cache/frames/${item.id}.webp`), out.image);
           if (out.height !== item.h) resized.push({ page, id: item.id, from: item.h, to: out.height });
-          writeFileSync(store.inside(project, `.cache/anchors/${item.id}.json`), JSON.stringify({ src: srcTime, deps, w: item.w, h: out.height, anchors: out.anchors, parts: out.parts, contrast: out.contrast }));
+          writeFileSync(store.inside(project, `.cache/anchors/${item.id}.json`), JSON.stringify({ src: srcTime, deps, w: item.w, h: out.height, anchors: out.anchors, parts: out.parts, contrast: out.contrast, overflow: out.overflow }));
         } catch (error) {
           failed.push({ id: item.id, error: error.message });
         }

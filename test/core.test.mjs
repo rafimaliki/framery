@@ -588,3 +588,12 @@ test('layout: check_layout finds boxes on top of each other, and layout_flow wil
   const now = (await call('get_page', {})).items.find((i) => i.id === 'd');
   assert.deepEqual([now.x, now.y], [at.x, at.y], 'nothing was moved');
 });
+
+test('check_design: a screen that loads a file that is not there is reported', async () => {
+  const { call, store, project } = scratch();
+  await call('add_item', { type: 'frame', id: 'a', title: 'A', src: 'a.html', device: 'phone' });
+  assert.ok(!(await call('check_design', {})).problems.some((p) => /does not exist/.test(p.problem)));
+  writeFileSync(join(store.dir(project), 'a.html'), '<link rel="stylesheet" href="missing.css"><link rel="stylesheet" href="https://x.test/a.css"><body>hi</body>');
+  const { problems } = await call('check_design', {});
+  assert.deepEqual(problems.filter((p) => /does not exist/.test(p.problem)).map((p) => p.problem), ['a.html loads missing.css, which does not exist, so the page renders without it']);
+});

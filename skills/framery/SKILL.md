@@ -103,6 +103,11 @@ Conventions that keep the board readable:
   screen to an existing flow, give it `x`,`y` and `parent` by hand, next to the screen it follows (a state or a
   branch goes under it), and leave every other screen where it is. `layout_flow` now refuses, changing nothing,
   when it would make anything overlap.
+- **Check that it rendered, not only that it exists.** After building or changing screens, `render_frames`, then
+  `check_design {page}`: it reports a screen loading a file that is not there, a component instance that renders
+  with no size (invisible: an inline element ignores width and height), and a page wider than its frame. Open the
+  preview (`.cache/frames/<id>.webp`) of every new frame and look at it before you say it is done. A sheet or screen
+  that is blank or half drawn is a bug to fix, not a result to report.
 - **Run `check_layout {page}` after adding or moving screens**, next to `check_arrows`: groups or screens lying
   on top of each other, or a screen outside its group, must be empty.
 - **A group is one flow.** Frames inside it read left to right; its description holds the flow's rules.
