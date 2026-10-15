@@ -39,6 +39,11 @@ per open comment, including ones already waiting, and each new one as it is made
 task: edit that element, then `resolve_note {id}`. The studio tells the person "the agent is on it" until
 you resolve, so always resolve, even when you chose not to change anything (say why in your reply).
 
+Never leave a comment hanging. If it is too vague to act on, or you disagree with it, call
+`ask_note {id, question}`: the question appears on its pin and the person answers there (the answer returns
+through `watch` as the same comment with `Q:`/`A:` lines added). Do not ask in the chat instead, and do not
+skip it. The studio also warns the person when no `watch` is running, so keep it running for the whole session.
+
 Descriptions are the product intent, written for whoever builds the screen. Read the group description
 for the flow's rules and each frame's description for that state. Build to them; if a frame and its
 description disagree, say so rather than guessing.

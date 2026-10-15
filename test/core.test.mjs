@@ -532,3 +532,15 @@ test('notes: add pins a comment to a screen element, list shows it, resolve remo
   assert.deepEqual((await call('list_notes', {})).map((n) => n.id), ['n2']);
   await assert.rejects(run(store, 'resolve_note', { project, id: note.id }), /no note/);
 });
+
+test('notes: a question waits for an answer, which comes back as part of the note', async () => {
+  const { call, store, project } = scratch();
+  const { item } = await call('add_item', { type: 'frame', title: 'Screen A', src: 'a.html', device: 'phone' });
+  const note = await call('add_note', { item: item.id, text: 'invert it' });
+  const ask = (tool, args) => run(store, tool, { project, ...args });
+  await assert.rejects(ask('reply_note', { id: note.id, text: 'x' }), /asked nothing/);
+  assert.equal((await ask('ask_note', { id: note.id, question: 'which way?' })).question, 'which way?');
+  const answered = await ask('reply_note', { id: note.id, text: 'back to blue' });
+  assert.equal(answered.question, undefined);
+  assert.match(answered.text, /invert it\n\nQ: which way\?\nA: back to blue/);
+});

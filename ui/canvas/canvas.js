@@ -52,7 +52,7 @@ export function createCanvas({ view: viewEl, world: worldEl, arrows: svg }, deps
     return el && (el.offsetWidth || el.offsetHeight) ? rectOf(el) : anchors.box(id, name);
   };
 
-  const notes = createCanvasNotes(worldEl, viewEl, { project: deps.project, frameRev: () => frameRev, page: () => page, liveDoc, toWorld: (x, y) => viewport.toWorld(x, y), onAdd: deps.onNote, onRemove: deps.onNoteRemove });
+  const notes = createCanvasNotes(worldEl, viewEl, { project: deps.project, frameRev: () => frameRev, page: () => page, liveDoc, toWorld: (x, y) => viewport.toWorld(x, y), onAdd: deps.onNote, onRemove: deps.onNoteRemove, onReply: deps.onNoteReply });
   let commenting = false;
 
   const viewport = createViewport(viewEl, worldEl, {

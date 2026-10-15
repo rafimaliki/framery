@@ -36,6 +36,7 @@ const canvas = createCanvas(
     arrowMode: settings.arrowMode,
     onView: (view) => zoombar.show(view),
     onNote: (note) => api.command('add_note', { project: state.project, page: state.pageId, ...note }).then(() => session.loadNotes()),
+    onNoteReply: (id, text) => api.command('reply_note', { project: state.project, id, text }).then(() => session.loadNotes()),
     onNoteRemove: (id) => api.command('resolve_note', { project: state.project, id }).then(() => session.loadNotes()),
     onProblems: (list) => zoombar.problems(list),
     onPick: (sel) => session.select(sel, { quiet: true }),
@@ -91,15 +92,35 @@ installShortcuts({
   },
 });
 
+// What is happening to the open comments, said plainly so none is ever left looking stuck: the agent has
+// them (a watcher is alive), the agent asked something, or nobody is listening.
+let watching = false;
+function paintStatus(list = state.notes.filter((n) => n.page === state.pageId)) {
+  const el = $('agent-status');
+  const asked = list.filter((n) => n.question).length;
+  const working = list.length - asked;
+  el.hidden = !list.length;
+  if (!list.length) return;
+  el.dataset.state = asked ? 'ask' : watching ? 'work' : 'idle';
+  el.textContent = asked
+    ? `The agent asked ${asked > 1 ? asked + ' questions' : 'a question'} · click the amber pin`
+    : watching
+      ? `Sent to the agent · ${working} comment${working > 1 ? 's' : ''} in progress`
+      : 'Nobody is watching for comments · ask the agent, or run: npx framery watch';
+}
+setInterval(async () => {
+  if (!state.notes.length) return;
+  const now = await api.watching();
+  if (now !== watching) ((watching = now), paintStatus());
+}, 4000);
+
 // Comments on this page: shown when the person wants them or is writing one.
 function paintNotes() {
   const list = state.notes.filter((n) => n.page === state.pageId);
   canvas.setNotes({ list, visible: commenting || settings.get().comments === 'show', commenting });
   zoombar.commenting(commenting);
   zoombar.count(list.length);
-  // a comment stays open until the agent resolves it, so open means the agent has it
-  $('agent-status').hidden = !list.length;
-  $('agent-status').textContent = `Sent to the agent · ${list.length} comment${list.length > 1 ? 's' : ''} in progress`;
+  paintStatus(list);
 }
 addEventListener('keydown', (event) => event.key === 'Escape' && commenting && ((commenting = false), paintNotes()));
 bus.on('notes', paintNotes);

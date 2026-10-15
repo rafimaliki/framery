@@ -110,11 +110,11 @@ export function createPlayer({ project, page, pageId, rev, onExit = () => {}, on
         const el = note.selector && doc.querySelector(note.selector);
         if (!el) return;
         const r = el.getBoundingClientRect();
-        const pin = h('button', { class: 'player__pin', type: 'button', title: note.text }, String(n + 1));
+        const pin = h('button', { class: `player__pin${note.question ? ' note-pin--ask' : ''}`, type: 'button', title: note.text }, String(n + 1));
         pin.style.left = `${Math.max(0, r.left * scale - 11)}px`;
         pin.style.top = `${Math.max(0, r.top * scale - 11)}px`;
         const drop = () => api.command('resolve_note', { project: project(), id: note.id }).then(() => ((notes = notes.filter((x) => x !== note)), paintPins()));
-        pin.addEventListener('click', () => popup.show(under(r), note, drop));
+        pin.addEventListener('click', () => popup.show(under(r), note, drop, (text) => api.command('reply_note', { project: project(), id: note.id, text }).then((next) => ((notes = notes.map((x) => (x === note ? next : x))), paintPins()))));
         pins.append(pin);
       });
     }

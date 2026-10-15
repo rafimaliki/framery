@@ -3,7 +3,7 @@
 // 127.0.0.1, refuses a Host it does not own, and takes writes only as same-origin JSON.
 
 import { createServer } from 'node:http';
-import { createReadStream, existsSync, mkdirSync, statSync, watch, writeFileSync } from 'node:fs';
+import { createReadStream, existsSync, mkdirSync, readFileSync, statSync, watch, writeFileSync } from 'node:fs';
 import { createGzip } from 'node:zlib';
 import { extname, join, normalize, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -194,6 +194,17 @@ export function serve({ root, port = 4173, strict = false, autoRender = true, qu
     }
 
     if (path === '/api/version') return json(response, 200, { version: version() });
+
+    // is a `framery watch` alive: its heartbeat is a few seconds old at most
+    if (path === '/api/watching') {
+      let at = 0;
+      try {
+        at = JSON.parse(readFileSync(join(store.root, '.cache', 'watch.json'), 'utf8')).at;
+      } catch {
+        // never started
+      }
+      return json(response, 200, { watching: Date.now() - at < 6000 });
+    }
 
     if (path === '/api/projects') {
       const list = store.projects().map((name) => ({ name, title: store.project(name).title ?? name }));

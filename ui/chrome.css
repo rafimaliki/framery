@@ -313,6 +313,11 @@ button { font: inherit; color: inherit; cursor: pointer; }
 [data-motion="reduced"] .note-pin, [data-motion="reduced"] .player__pin { animation: none; }
 .agent-status { position: absolute; left: 50%; bottom: 66px; z-index: 5; transform: translateX(-50%); margin: 0; display: flex; align-items: center; gap: 8px; padding: 6px 14px 6px 12px; border-radius: 999px; background: var(--surface); border: 1px solid var(--edge); box-shadow: var(--float); font: 600 12px var(--font-ui); color: var(--ink-soft); white-space: nowrap; }
 .agent-status[hidden] { display: none; }
+.agent-status[data-state="idle"] { color: #8a5a00; border-color: #e0b04a; }
+.agent-status[data-state="idle"]::before, .agent-status[data-state="ask"]::before { animation: none; background: #e0a21b; }
+.agent-status[data-state="ask"] { color: var(--ink); }
+.note-pin--ask { background: #e0a21b; color: #1c1300; animation: none !important; }
+.note-pop__ask { margin: 0; padding: 8px 10px; border-radius: 10px; background: color-mix(in srgb, #e0a21b 16%, transparent); font-size: 13px; line-height: 1.4; }
 .agent-status::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); animation: agent-work 1.8s ease-out infinite; }
 [data-motion="reduced"] .agent-status::before { animation: none; }
 .note-pop__wait { margin: 0; font-size: 12px; color: var(--ink-soft); }

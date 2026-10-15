@@ -7,7 +7,7 @@ import { h } from '../../core/dom.js';
 import { api } from '../../core/api.js';
 import { createNotePopup, describe, nameOf } from '../../core/notes.js';
 
-export function createCanvasNotes(world, view, { project, frameRev, page, liveDoc, toWorld, onAdd, onRemove }) {
+export function createCanvasNotes(world, view, { project, frameRev, page, liveDoc, toWorld, onAdd, onRemove, onReply }) {
   const layer = h('div', { class: 'notes' });
   const hoverTag = h('span', { class: 'note-hover__tag' });
   const hover = h('div', { class: 'note-hover', hidden: true }, hoverTag);
@@ -62,7 +62,7 @@ export function createCanvasNotes(world, view, { project, frameRev, page, liveDo
     notes.forEach((note, n) => {
       const frame = frames.get(note.item);
       if (!frame) return;
-      const pin = h('button', { class: 'note-pin', type: 'button', 'data-note': note.id, title: note.text }, String(n + 1));
+      const pin = h('button', { class: `note-pin${note.question ? ' note-pin--ask' : ''}`, type: 'button', 'data-note': note.id, title: note.text }, String(n + 1));
       pin.style.left = `${frame.x + (note.box?.[0] ?? 0)}px`;
       pin.style.top = `${frame.y + (note.box?.[1] ?? 0)}px`;
       layer.append(pin);
@@ -102,7 +102,7 @@ export function createCanvasNotes(world, view, { project, frameRev, page, liveDo
     read(pin) {
       const note = notes.find((x) => x.id === pin.dataset.note);
       const r = pin.getBoundingClientRect();
-      if (note) popup.show({ left: r.left, top: r.bottom + 6 }, note, () => onRemove(note.id));
+      if (note) popup.show({ left: r.left, top: r.bottom + 6 }, note, () => onRemove(note.id), (text) => onReply(note.id, text));
     },
 
     // A tap in comment mode, at a point in the world (x, y) and on the window (at).

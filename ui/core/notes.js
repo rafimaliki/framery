@@ -72,9 +72,24 @@ export function createNotePopup(host) {
       open(at, about(context ?? {}), area, msg(), h('div', { class: 'note-pop__row' }, h('span', { class: 'note-pop__hint' }, 'Enter to send · Shift+Enter for a new line'), btn('Cancel', close), ok));
       area.focus();
     },
-    // remove() returns a promise; the box closes when it resolves
-    show(at, note, remove) {
-      open(at, about({ name: note.selector?.split(' > ').pop(), label: note.label }), h('p', { class: 'note-pop__text' }, note.text), h('p', { class: 'note-pop__wait' }, 'Sent to the agent. This disappears when it is done.'), msg(), h('div', { class: 'note-pop__row' }, btn('Close', close), btn('Delete', () => remove().then(close, fail))));
+    // remove() and reply(text) return promises; the box closes when they resolve. A note with a question
+    // from the agent shows it with a box to answer in.
+    show(at, note, remove, reply) {
+      const head = about({ name: note.selector?.split(' > ').pop(), label: note.label });
+      const text = h('p', { class: 'note-pop__text' }, note.text);
+      const drop = btn('Delete', () => remove().then(close, fail));
+      if (!note.question) return open(at, head, text, h('p', { class: 'note-pop__wait' }, 'Sent to the agent. This disappears when it is done.'), msg(), h('div', { class: 'note-pop__row' }, btn('Close', close), drop));
+      const area = h('textarea', { class: 'note-pop__input', rows: 2, placeholder: 'Your answer', 'aria-label': 'Answer' });
+      const send = h('button', { class: 'note-pop__send', type: 'button', disabled: true }, 'Answer');
+      const submit = () => !send.disabled && ((send.disabled = true), reply(area.value).then(close, (error) => ((send.disabled = false), fail(error))));
+      send.addEventListener('click', submit);
+      area.addEventListener('input', () => (send.disabled = !area.value.trim()));
+      area.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) (event.preventDefault(), submit());
+        if (event.key === 'Escape') (event.preventDefault(), close());
+      });
+      open(at, head, text, h('p', { class: 'note-pop__ask' }, 'The agent asks: ', note.question), area, msg(), h('div', { class: 'note-pop__row' }, drop, btn('Close', close), send));
+      area.focus();
     },
   };
 }
