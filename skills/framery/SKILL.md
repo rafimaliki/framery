@@ -90,9 +90,23 @@ Conventions that keep the board readable:
 
 ## Components
 
-A control used in many frames should be a **component**: one definition in `library/<id>.html`
-(registered in `library.json`) with `{{prop}}` placeholders, used by reference. In a frame an instance is a
-marked region of plain html: `<!-- fr:component button variant="primary" label="Save" -->…<!-- /fr:component -->`.
+**Design system first, screens second.** Every reusable piece of UI (button, input, card, list row, top bar,
+navigation bar, tab control, badge, dialog, …) is a **component** before any screen uses it, so the design
+system is the single source of truth and editing one definition changes every screen that uses it.
+
+1. Before building screens, read `list_components` and the tokens (`list_tokens`). Reuse what exists; extend
+   a component with a prop or variant rather than making a near-copy.
+2. Missing pieces: `create_component` first (and `set_token` for any new colour, size or radius it needs),
+   show them on a design-system page with `component_sheet`, then build screens by `use_component`.
+3. In a screen, a control that exists as a component is always an instance, never hand-written markup, and
+   no raw colour, size or font value that belongs in a token. Only one-off layout and content are plain html.
+4. A change to how something looks or behaves everywhere is `update_component` or `set_token`, never an
+   edit repeated across frames. Run `find_candidates` before you finish: repeated markup it lists should be
+   promoted (`promote_component`).
+
+A component is one definition in `library/<id>.html` (registered in `library.json`) with `{{prop}}`
+placeholders, used by reference. In a frame an instance is a marked region of plain html:
+`<!-- fr:component button variant="primary" label="Save" -->…<!-- /fr:component -->`.
 The html between the markers is generated, so never edit it by hand: change the definition (or the instance's
 props) and every frame follows.
 

@@ -5,7 +5,7 @@ import { createInterface } from 'node:readline';
 import { FramError, Store } from './store.mjs';
 import { commands, run } from './commands.mjs';
 
-const INSTRUCTIONS = 'Framery is a design studio: pages of frames (html screens), groups, flowchart nodes and arrows. Call outline first to read a page, then edit with the other tools. Give the person link(...) to look at your work.';
+const INSTRUCTIONS = 'Framery is a design studio: pages of frames (html screens), groups, flowchart nodes and arrows. Call outline first to read a page, then edit with the other tools. Build the design system first: UI pieces are components (list_components, create_component) and tokens before any screen uses them, so one edit reaches every screen. Give the person link(...) to look at your work.';
 
 export function mcp({ root }) {
   const store = new Store(root);
