@@ -193,9 +193,13 @@ export const componentCommands = {
       });
       const file = `components/lib-${a.id}.html`;
       mkdirSync(store.inside(name, 'components'), { recursive: true });
+      // only what the project has: a stylesheet or script that is not there is a broken sheet, not a default
+      const has = (path) => existsSync(store.inside(name, path));
+      const links = ['tokens.css', 'base.css', 'app.css', 'board.css'].filter(has).map((f) => `  <link rel="stylesheet" href="../${f}">\n`).join('');
+      const script = has('icons.js') ? '<script src="../icons.js"></script>\n' : '';
       writeFileSync(
         store.inside(name, file),
-        `<!doctype html>\n<html lang="en">\n<head>\n  <meta charset="utf-8">\n  <meta name="viewport" content="width=device-width, initial-scale=1">\n  <title>${def.title ?? a.id}, all variants</title>\n  <link rel="stylesheet" href="../tokens.css">\n  <link rel="stylesheet" href="../base.css">\n  <link rel="stylesheet" href="../app.css">\n  <link rel="stylesheet" href="../board.css">\n</head>\n<body class="embed-doc">\n<script src="../icons.js"></script>\n<!-- Every variant of ${a.id}, as instances: edit the component and this page follows. -->\n<main class="spec">\n<div class="gal__stack">\n${instances.join('\n')}\n</div>\n</main>\n</body>\n</html>\n`,
+        `<!doctype html>\n<html lang="en">\n<head>\n  <meta charset="utf-8">\n  <meta name="viewport" content="width=device-width, initial-scale=1">\n  <title>${def.title ?? a.id}, all variants</title>\n${links}  <style>:where(.gal__stack){display:flex;flex-wrap:wrap;align-items:center;gap:16px}</style>\n</head>\n<body class="embed-doc">\n${script}<!-- Every variant of ${a.id}, as instances: edit the component and this page follows. -->\n<main class="spec">\n<div class="gal__stack">\n${instances.join('\n')}\n</div>\n</main>\n</body>\n</html>\n`,
       );
       const synced = sync(store, name);
       return { file, variants: states.length, synced: synced.changed.length };
