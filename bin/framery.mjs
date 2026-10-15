@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// framery [serve] | mcp | init | doctor | version | render | cmd <name> [json] | tools     (--data DIR, --port N)
+// framery [serve] | mcp | init | doctor | version | render | watch | cmd <name> [json] | tools     (--data DIR, --port N)
 
 import { resolve } from 'node:path';
 import { Store, FramError } from '../src/store.mjs';
@@ -45,6 +45,8 @@ try {
     console.log((await import('../src/doctor.mjs')).version());
   } else if (command === 'render') {
     console.log(JSON.stringify(await run(new Store(dataRoot()), 'render_frames', { project, force }), null, 2));
+  } else if (command === 'watch') {
+    (await import('../src/watch.mjs')).watch(new Store(dataRoot())); // runs until stopped
   } else if (command === 'tools') {
     for (const [name, c] of Object.entries(commands)) console.log(`${name.padEnd(16)} ${c.description}`);
   } else if (command === 'cmd') {
@@ -52,7 +54,7 @@ try {
     const out = await run(new Store(dataRoot()), name, args ? JSON.parse(args) : {});
     console.log(typeof out === 'string' ? out : JSON.stringify(out, null, 2));
   } else {
-    console.error('usage: framery [serve|mcp|init|doctor|version|render|tools|cmd <name> [json]] [--data DIR] [--port N] [--project P]');
+    console.error('usage: framery [serve|mcp|init|doctor|version|render|watch|tools|cmd <name> [json]] [--data DIR] [--port N] [--project P]');
     process.exit(2);
   }
 } catch (error) {

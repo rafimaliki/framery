@@ -33,6 +33,12 @@ come from you.
    `selector`, plus its `html` and visible `label`) and the comment. Treat them as the task: edit exactly
    that element, then `resolve_note {id}`. Check them when the person says "see my comments" or similar.
 
+**Watch for comments by default.** When the studio is in use, start `npx framery watch` once with your
+harness's background monitor (Claude Code: the Monitor tool, never a foreground shell). It prints one line
+per open comment, including ones already waiting, and each new one as it is made. Treat every line as a
+task: edit that element, then `resolve_note {id}`. The studio tells the person "the agent is on it" until
+you resolve, so always resolve, even when you chose not to change anything (say why in your reply).
+
 Descriptions are the product intent, written for whoever builds the screen. Read the group description
 for the flow's rules and each frame's description for that state. Build to them; if a frame and its
 description disagree, say so rather than guessing.

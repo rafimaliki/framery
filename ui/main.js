@@ -97,6 +97,9 @@ function paintNotes() {
   canvas.setNotes({ list, visible: commenting || settings.get().comments === 'show', commenting });
   zoombar.commenting(commenting);
   zoombar.count(list.length);
+  // a comment stays open until the agent resolves it, so open means the agent has it
+  $('agent-status').hidden = !list.length;
+  $('agent-status').textContent = `Sent to the agent · ${list.length} comment${list.length > 1 ? 's' : ''} in progress`;
 }
 addEventListener('keydown', (event) => event.key === 'Escape' && commenting && ((commenting = false), paintNotes()));
 bus.on('notes', paintNotes);

@@ -74,7 +74,7 @@ export function createNotePopup(host) {
     },
     // remove() returns a promise; the box closes when it resolves
     show(at, note, remove) {
-      open(at, about({ name: note.selector?.split(' > ').pop(), label: note.label }), h('p', { class: 'note-pop__text' }, note.text), msg(), h('div', { class: 'note-pop__row' }, btn('Close', close), btn('Delete', () => remove().then(close, fail))));
+      open(at, about({ name: note.selector?.split(' > ').pop(), label: note.label }), h('p', { class: 'note-pop__text' }, note.text), h('p', { class: 'note-pop__wait' }, 'Sent to the agent. This disappears when it is done.'), msg(), h('div', { class: 'note-pop__row' }, btn('Close', close), btn('Delete', () => remove().then(close, fail))));
     },
   };
 }
