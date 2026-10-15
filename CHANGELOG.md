@@ -20,6 +20,9 @@ New tools and commands:
 - `list_notes`, `resolve_note`, `ask_note`, `reply_note`, `add_note`; `send_chat`, `list_chat`, `reply_chat`; `check_layout`.
 - `framery watch [--once]` prints a line for each comment or chat message waiting for an agent, so any agent that can run a background
   command picks them up without a manual step.
+- `framery stop` ends the studio (and a `framery watch`) properly: it asks the studio to close over its own address, never
+  kills a process it has not confirmed is framery, and clears the pid files a dead process left behind. The studio also
+  removes its address file when it ends (Ctrl+C or a termination). The skill tells agents to use it instead of killing a task.
 
 Changes you may notice:
 - `check_design` also reports a screen that loads a file that does not exist, a component instance that renders with no size, and a
@@ -29,6 +32,7 @@ Changes you may notice:
 - The skill: design system and components first, one page per kind of thing, never re-lay an arranged flow, check that things
   rendered, watch for comments and chat by default.
 
+## 0.4.1
 
 Studio:
 - A lighter look: white chrome with a plum accent (soft plum in the dark theme) in place of orange, and a new icon.

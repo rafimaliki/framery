@@ -117,6 +117,7 @@ npx framery mcp              the stdio MCP server (registered for you by init)
 npx framery init             wire a project; safe to repeat
 npx framery doctor           check versions and wiring
 npx framery watch            print each comment and chat message from the studio as it arrives (an agent runs this under its background monitor; --once prints what is waiting, then exits)
+npx framery stop             end the studio (and a watcher) properly; safe when nothing runs
 npx framery tools            every tool and what it does
 npx framery cmd <tool> '{}'  run a tool from a shell
 npx framery render           previews, anchor boxes, autoHeight heights

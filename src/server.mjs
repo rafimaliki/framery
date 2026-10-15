@@ -8,6 +8,7 @@ import { createGzip } from 'node:zlib';
 import { extname, join, normalize, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { FramError, Store } from './store.mjs';
+import { forgetStudio } from './process.mjs';
 import { commands, run } from './commands.mjs';
 import { sync } from './library.mjs';
 import { record } from './history.mjs';
@@ -31,7 +32,8 @@ const TYPES = {
 const SQUEEZE = new Set(['.html', '.css', '.js', '.mjs', '.json', '.svg']);
 
 // strict: the port was asked for by name, so a busy one is an error. Otherwise the next free one is taken.
-export function serve({ root, port = 4173, strict = false, autoRender = true, quiet = false }) {
+// exit: what ends the process when asked to stop (replaceable, so a test can ask without ending itself)
+export function serve({ root, port = 4173, strict = false, autoRender = true, quiet = false, exit = () => process.exit(0) }) {
   const wanted = port;
   const watchers = [];
   const store = new Store(root);
@@ -176,6 +178,14 @@ export function serve({ root, port = 4173, strict = false, autoRender = true, qu
     return full === base || full.startsWith(base + sep) ? full : null;
   };
 
+  // ended from outside: forget the address, close, and let go of the live-reload streams that would hold it open
+  const shutdown = () => {
+    forgetStudio(store.root);
+    server.close();
+    server.closeAllConnections?.();
+    exit();
+  };
+
   const handler = async (request, response) => {
     const host = request.headers.host ?? '';
     if (host !== `127.0.0.1:${port}` && host !== `localhost:${port}`) return response.writeHead(403).end('Forbidden');
@@ -205,6 +215,16 @@ export function serve({ root, port = 4173, strict = false, autoRender = true, qu
         // never started
       }
       return json(response, 200, { watching: Date.now() - at < 6000 });
+    }
+
+    // `framery stop`: close, once the reply is out. Same guard as a command: same-origin JSON only.
+    if (path === '/api/stop') {
+      const origin = request.headers.origin;
+      if (request.method !== 'POST' || (origin && new URL(origin).host !== host) || !/application\/json/.test(request.headers['content-type'] ?? '')) {
+        return json(response, 400, { error: 'POST same-origin JSON' });
+      }
+      response.once('finish', shutdown);
+      return json(response, 200, { stopping: true });
     }
 
     if (path === '/api/projects') {

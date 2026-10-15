@@ -204,6 +204,10 @@ generated component regions and previews follow. Do not restore on your own init
 `npx framery tools` lists them with descriptions. Start the studio with `npx framery`
 (http://127.0.0.1:4173, or the next free port: `link` knows which).
 
+**To stop it, run `npx framery stop`.** Do not kill the task or the process by pid: that leaves a stale address file and
+may end the wrong process. `stop` asks the studio to close (and ends a `framery watch`), clears what they left
+behind, prints what it stopped, and is safe to run when nothing is running.
+
 ## Updating framery
 
 Never update it on your own. When the person asks: `framery doctor` says what is installed and whether this project's
