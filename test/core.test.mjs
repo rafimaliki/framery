@@ -544,3 +544,26 @@ test('notes: a question waits for an answer, which comes back as part of the not
   assert.equal(answered.question, undefined);
   assert.match(answered.text, /invert it\n\nQ: which way\?\nA: back to blue/);
 });
+
+test('chat: a message waits until the agent replies; watch --once prints it and ends', async () => {
+  const { store, project } = scratch();
+  const ask = (tool, args) => run(store, tool, { project, ...args });
+  await assert.rejects(ask('send_chat', { text: '  ' }), /empty/);
+  const sent = await ask('send_chat', { text: 'make the title bigger', page: 'flows', selected: 'home' });
+  assert.deepEqual([sent.role, sent.page, sent.selected], ['user', 'flows', 'home']);
+  assert.deepEqual((await ask('list_chat', {})).pending, [sent.id]);
+
+  const cli = fileURLToPath(new URL('../bin/framery.mjs', import.meta.url));
+  const out = await new Promise((resolve, reject) => {
+    const child = spawn(process.execPath, [cli, 'watch', '--once', '--data', store.root]);
+    let text = '';
+    child.stdout.on('data', (chunk) => (text += chunk));
+    child.on('exit', () => resolve(text));
+    setTimeout(() => (child.kill(), reject(new Error('watch --once did not end'))), 8000);
+  });
+  assert.match(out, /^CHAT c1 \[page flows, selected home\]: make the title bigger/);
+
+  await ask('reply_chat', { text: 'done' });
+  assert.deepEqual((await ask('list_chat', {})).pending, []);
+  assert.deepEqual((await ask('list_chat', {})).messages.map((m) => m.role), ['user', 'agent']);
+});

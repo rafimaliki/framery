@@ -9,6 +9,7 @@ import { cmd, project, t, where } from './kit.mjs';
 import { componentCommands } from './commands-components.mjs';
 import { historyCommands } from './commands-history.mjs';
 import { noteCommands } from './commands-notes.mjs';
+import { chatCommands } from './commands-chat.mjs';
 import { begin, record, snapshot } from './history.mjs';
 import { checkArrows } from '../ui/canvas/check.js';
 
@@ -723,6 +724,7 @@ export const commands = {
 
   ...componentCommands,
   ...noteCommands,
+  ...chatCommands,
   ...historyCommands,
 };
 

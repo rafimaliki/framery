@@ -90,6 +90,7 @@ export function serve({ root, port = 4173, strict = false, autoRender = true, qu
     if (rest[0] === '.history') return path.startsWith('.history/lock') ? null : { type: 'history', project };
     if (path === 'project.json') return { type: 'project', project };
     if (path === 'notes.json') return { type: 'notes', project };
+    if (path === 'chat.json') return { type: 'chat', project };
     if (path === 'library.json' || rest[0] === 'library') return { type: 'library', project };
     if (rest[0] === 'pages') return { type: 'page', project, page: path.replace(/^pages\//, '').replace(/\.json$/, '') };
     if (/\.(css|js)$/.test(path)) return { type: 'assets', project, path };

@@ -8,6 +8,7 @@ import { navigate, onRoute, parse } from './core/router.js';
 import { session } from './core/session.js';
 import { settings } from './core/settings.js';
 import { createCanvas } from './canvas/canvas.js';
+import { createChat } from './panels/chat.js';
 import { createInspector } from './panels/inspector.js';
 import { createLayers } from './panels/layers.js';
 import { createHistory } from './panels/history.js';
@@ -52,6 +53,10 @@ const zoombar = createZoombar({ warn: $('arrow-warn'), arrows: $('arrows-mode'),
   onPick: (sel) => session.select(sel),
   onComment: () => ((commenting = !commenting), paintNotes()),
 });
+const chat = createChat(
+  { button: $('chat-btn'), panel: $('chat') },
+  { send: (text) => api.command('send_chat', { project: state.project, text, page: state.pageId, selected: state.sel?.kind === 'item' ? state.sel.id : undefined }).then(() => session.loadChat()) },
+);
 const sidebar = createSidebar(
   { app: $('app'), side: $('side'), pages: $('pages'), projects: $('projects'), menu: $('menu'), close: $('side-close') },
   { onNavigate: (route) => navigate(route) },
@@ -109,10 +114,11 @@ function paintStatus(list = state.notes.filter((n) => n.page === state.pageId)) 
       : 'Nobody is watching for comments · ask the agent, or run: npx framery watch';
 }
 setInterval(async () => {
-  if (!state.notes.length) return;
+  if (!state.notes.length && !chat.isOpen()) return; // nothing is waiting on an agent
   const now = await api.watching();
-  if (now !== watching) ((watching = now), paintStatus());
+  if (now !== watching) ((watching = now), paintStatus(), chat.show(state.chat, watching));
 }, 4000);
+bus.on('chat', (messages) => chat.show(messages, watching));
 
 // Comments on this page: shown when the person wants them or is writing one.
 function paintNotes() {

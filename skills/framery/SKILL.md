@@ -33,10 +33,14 @@ come from you.
    `selector`, plus its `html` and visible `label`) and the comment. Treat them as the task: edit exactly
    that element, then `resolve_note {id}`. Check them when the person says "see my comments" or similar.
 
-**Watch for comments by default.** When the studio is in use, start `npx framery watch` once with your
-harness's background monitor (Claude Code: the Monitor tool, never a foreground shell). It prints one line
-per open comment, including ones already waiting, and each new one as it is made. Treat every line as a
-task: edit that element, then `resolve_note {id}`. The studio tells the person "the agent is on it" until
+**Watch for comments and chat by default.** When the studio is in use, start `npx framery watch` once with your
+harness's background monitor (Claude Code: the Monitor tool, never a foreground shell; an agent that can only run
+a command to the end runs `npx framery watch --once` again after each batch). It prints one line per thing waiting
+for you, including what was already waiting, and each new one as it arrives: `NOTE …` is a comment, `CHAT …` is a
+message the person typed in the studio's chat. Treat every NOTE line as a task: edit that element, then `resolve_note {id}`.
+For a CHAT line do what is asked, within the design data (screens, components, tokens, pages); anything beyond that
+(git, deleting files, running commands) ask first. Always finish with `reply_chat {text}`: say what you did or what you
+need, even to decline. It answers every message sent so far. The studio tells the person "the agent is on it" until
 you resolve, so always resolve, even when you chose not to change anything (say why in your reply).
 
 Never leave a comment hanging. If it is too vague to act on, or you disagree with it, call

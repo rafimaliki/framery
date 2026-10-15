@@ -114,7 +114,7 @@ npx framery                  start the studio on http://127.0.0.1:4173 or the ne
 npx framery mcp              the stdio MCP server (registered for you by init)
 npx framery init             wire a project; safe to repeat
 npx framery doctor           check versions and wiring
-npx framery watch            print each comment left in the studio as it arrives (an agent runs this under its background monitor)
+npx framery watch            print each comment and chat message from the studio as it arrives (an agent runs this under its background monitor; --once prints what is waiting, then exits)
 npx framery tools            every tool and what it does
 npx framery cmd <tool> '{}'  run a tool from a shell
 npx framery render           previews, anchor boxes, autoHeight heights

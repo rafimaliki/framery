@@ -302,6 +302,23 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .player__way--negative { color: var(--neg); border-color: var(--neg); }
 .player__end { color: var(--ink-soft); }
 
+/* the chat with the agent */
+.chat { position: absolute; right: 14px; bottom: 70px; z-index: 7; width: min(360px, calc(100% - 28px)); max-height: min(520px, 70%); display: flex; flex-direction: column; border-radius: 16px; background: var(--surface); box-shadow: 0 0 0 1px var(--edge), 0 12px 36px rgba(22, 22, 26, 0.22); animation: pop-in var(--dur) var(--spring) both; transform-origin: 100% 100%; }
+.chat[hidden] { display: none; }
+.chat__head { display: flex; align-items: center; justify-content: space-between; padding: 10px 8px 6px 14px; font-size: 13px; }
+.chat__list { flex: 1; min-height: 120px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding: 6px 14px; }
+.chat__msg { max-width: 85%; padding: 8px 12px; border-radius: 14px; font-size: 14px; line-height: 1.4; white-space: pre-wrap; overflow-wrap: anywhere; }
+.chat__msg--user { align-self: flex-end; background: var(--accent); color: var(--accent-ink); border-bottom-right-radius: 4px; }
+.chat__msg--agent { align-self: flex-start; background: var(--bg-2); border-bottom-left-radius: 4px; }
+.chat__status { margin: 0; padding: 0 14px; min-height: 18px; font-size: 12px; color: var(--ink-soft); }
+.chat__status[data-state="work"]::before { content: ""; display: inline-block; width: 7px; height: 7px; margin-right: 6px; border-radius: 50%; background: var(--accent); animation: agent-work 1.8s ease-out infinite; }
+.chat__status[data-state="idle"] { color: #8a5a00; }
+[data-motion="reduced"] .chat__status::before { animation: none; }
+.chat__form { display: flex; align-items: flex-end; gap: 8px; padding: 10px 12px 12px; }
+.chat__input { flex: 1; min-height: 36px; max-height: 120px; box-sizing: border-box; resize: none; padding: 8px 12px; border: 1px solid var(--edge); border-radius: 12px; background: var(--bg); color: inherit; font: 14px/1.4 var(--font-ui); outline: none; }
+.chat__input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent); }
+.icon-btn[aria-pressed="true"]#chat-btn { background: var(--accent); color: var(--accent-ink); }
+
 /* comments on the canvas: pins ride the world and keep their size at any zoom */
 .notes { position: absolute; left: 0; top: 0; width: 0; height: 0; z-index: 60; }
 .notes[hidden] { display: none; }

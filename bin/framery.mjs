@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// framery [serve] | mcp | init | doctor | version | render | watch | cmd <name> [json] | tools     (--data DIR, --port N)
+// framery [serve] | mcp | init | doctor | version | render | watch [--once] | cmd <name> [json] | tools     (--data DIR, --port N)
 
 import { resolve } from 'node:path';
 import { Store, FramError } from '../src/store.mjs';
@@ -24,6 +24,7 @@ const asked = flag('port') ?? process.env.PORT;
 const port = Number(asked ?? 4173);
 const quiet = has('no-render');
 const force = has('force');
+const once = has('once');
 const project = flag('project');
 const [command = 'serve', ...rest] = argv;
 
@@ -46,7 +47,7 @@ try {
   } else if (command === 'render') {
     console.log(JSON.stringify(await run(new Store(dataRoot()), 'render_frames', { project, force }), null, 2));
   } else if (command === 'watch') {
-    (await import('../src/watch.mjs')).watch(new Store(dataRoot())); // runs until stopped
+    (await import('../src/watch.mjs')).watch(new Store(dataRoot()), { once }); // runs until stopped (--once: until something arrives)
   } else if (command === 'tools') {
     for (const [name, c] of Object.entries(commands)) console.log(`${name.padEnd(16)} ${c.description}`);
   } else if (command === 'cmd') {
