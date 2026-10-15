@@ -3,11 +3,12 @@
 // 127.0.0.1, refuses a Host it does not own, and takes writes only as same-origin JSON.
 
 import { createServer } from 'node:http';
-import { createReadStream, existsSync, mkdirSync, statSync, watch, writeFileSync } from 'node:fs';
+import { createReadStream, existsSync, mkdirSync, readFileSync, statSync, watch, writeFileSync } from 'node:fs';
 import { createGzip } from 'node:zlib';
 import { extname, join, normalize, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { FramError, Store } from './store.mjs';
+import { forgetStudio } from './process.mjs';
 import { commands, run } from './commands.mjs';
 import { sync } from './library.mjs';
 import { record } from './history.mjs';
@@ -31,7 +32,8 @@ const TYPES = {
 const SQUEEZE = new Set(['.html', '.css', '.js', '.mjs', '.json', '.svg']);
 
 // strict: the port was asked for by name, so a busy one is an error. Otherwise the next free one is taken.
-export function serve({ root, port = 4173, strict = false, autoRender = true, quiet = false }) {
+// exit: what ends the process when asked to stop (replaceable, so a test can ask without ending itself)
+export function serve({ root, port = 4173, strict = false, autoRender = true, quiet = false, exit = () => process.exit(0) }) {
   const wanted = port;
   const watchers = [];
   const store = new Store(root);
@@ -89,6 +91,8 @@ export function serve({ root, port = 4173, strict = false, autoRender = true, qu
     if (rest[0] === '.cache') return { type: 'cache', project };
     if (rest[0] === '.history') return path.startsWith('.history/lock') ? null : { type: 'history', project };
     if (path === 'project.json') return { type: 'project', project };
+    if (path === 'notes.json') return { type: 'notes', project };
+    if (path === 'chat.json') return { type: 'chat', project };
     if (path === 'library.json' || rest[0] === 'library') return { type: 'library', project };
     if (rest[0] === 'pages') return { type: 'page', project, page: path.replace(/^pages\//, '').replace(/\.json$/, '') };
     if (/\.(css|js)$/.test(path)) return { type: 'assets', project, path };
@@ -174,6 +178,14 @@ export function serve({ root, port = 4173, strict = false, autoRender = true, qu
     return full === base || full.startsWith(base + sep) ? full : null;
   };
 
+  // ended from outside: forget the address, close, and let go of the live-reload streams that would hold it open
+  const shutdown = () => {
+    forgetStudio(store.root);
+    server.close();
+    server.closeAllConnections?.();
+    exit();
+  };
+
   const handler = async (request, response) => {
     const host = request.headers.host ?? '';
     if (host !== `127.0.0.1:${port}` && host !== `localhost:${port}`) return response.writeHead(403).end('Forbidden');
@@ -193,6 +205,27 @@ export function serve({ root, port = 4173, strict = false, autoRender = true, qu
     }
 
     if (path === '/api/version') return json(response, 200, { version: version() });
+
+    // is a `framery watch` alive: its heartbeat is a few seconds old at most
+    if (path === '/api/watching') {
+      let at = 0;
+      try {
+        at = JSON.parse(readFileSync(join(store.root, '.cache', 'watch.json'), 'utf8')).at;
+      } catch {
+        // never started
+      }
+      return json(response, 200, { watching: Date.now() - at < 6000 });
+    }
+
+    // `framery stop`: close, once the reply is out. Same guard as a command: same-origin JSON only.
+    if (path === '/api/stop') {
+      const origin = request.headers.origin;
+      if (request.method !== 'POST' || (origin && new URL(origin).host !== host) || !/application\/json/.test(request.headers['content-type'] ?? '')) {
+        return json(response, 400, { error: 'POST same-origin JSON' });
+      }
+      response.once('finish', shutdown);
+      return json(response, 200, { stopping: true });
+    }
 
     if (path === '/api/projects') {
       const list = store.projects().map((name) => ({ name, title: store.project(name).title ?? name }));

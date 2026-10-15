@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// framery [serve] | mcp | init | doctor | version | render | cmd <name> [json] | tools     (--data DIR, --port N)
+// framery [serve] | mcp | init | doctor | version | render | watch [--once] | stop | cmd <name> [json] | tools     (--data DIR, --port N)
 
 import { resolve } from 'node:path';
 import { Store, FramError } from '../src/store.mjs';
@@ -24,13 +24,23 @@ const asked = flag('port') ?? process.env.PORT;
 const port = Number(asked ?? 4173);
 const quiet = has('no-render');
 const force = has('force');
+const once = has('once');
 const project = flag('project');
 const [command = 'serve', ...rest] = argv;
 
 try {
   if (command === 'serve') {
     const { serve } = await import('../src/server.mjs');
-    serve({ root: dataRoot(), port, strict: asked != null, autoRender: !quiet });
+    const { forgetStudio } = await import('../src/process.mjs');
+    const server = serve({ root: dataRoot(), port, strict: asked != null, autoRender: !quiet });
+    // Ctrl+C or a plain termination also leaves nothing behind
+    for (const signal of ['SIGINT', 'SIGTERM']) {
+      process.once(signal, () => {
+        forgetStudio(dataRoot());
+        server.close();
+        process.exit(0);
+      });
+    }
   } else if (command === 'mcp') {
     (await import('../src/mcp.mjs')).mcp({ root: dataRoot() });
   } else if (command === 'init') {
@@ -45,6 +55,11 @@ try {
     console.log((await import('../src/doctor.mjs')).version());
   } else if (command === 'render') {
     console.log(JSON.stringify(await run(new Store(dataRoot()), 'render_frames', { project, force }), null, 2));
+  } else if (command === 'watch') {
+    (await import('../src/watch.mjs')).watch(new Store(dataRoot()), { once }); // runs until stopped (--once: until something arrives)
+  } else if (command === 'stop') {
+    const { stop } = await import('../src/process.mjs');
+    console.log(JSON.stringify({ stopped: await stop(dataRoot()) }, null, 2)); // nothing running: an empty list, exit 0
   } else if (command === 'tools') {
     for (const [name, c] of Object.entries(commands)) console.log(`${name.padEnd(16)} ${c.description}`);
   } else if (command === 'cmd') {
@@ -52,7 +67,7 @@ try {
     const out = await run(new Store(dataRoot()), name, args ? JSON.parse(args) : {});
     console.log(typeof out === 'string' ? out : JSON.stringify(out, null, 2));
   } else {
-    console.error('usage: framery [serve|mcp|init|doctor|version|render|tools|cmd <name> [json]] [--data DIR] [--port N] [--project P]');
+    console.error('usage: framery [serve|mcp|init|doctor|version|render|watch|stop|tools|cmd <name> [json]] [--data DIR] [--port N] [--project P]');
     process.exit(2);
   }
 } catch (error) {

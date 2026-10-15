@@ -100,6 +100,8 @@ npx framery doctor                                        # confirm
 
 - **Releases are git tags.** Pin the one you want; the install line above is the whole upgrade.
   `npm ls framery` shows what you have.
+- **Restart a running studio** after installing: it keeps running the version it started with. Cached previews are
+  measured again once, by themselves; new files (comments, chat) appear only when first used.
 - **Your design is yours.** An upgrade replaces the app in `node_modules` and, with `init`, the skill copy.
   It does not rewrite `framery/`. A release that changes the data format says so in the changelog and
   ships its migration; a project saved by a newer version than the one installed is refused with a clear message,
@@ -114,6 +116,8 @@ npx framery                  start the studio on http://127.0.0.1:4173 or the ne
 npx framery mcp              the stdio MCP server (registered for you by init)
 npx framery init             wire a project; safe to repeat
 npx framery doctor           check versions and wiring
+npx framery watch            print each comment and chat message from the studio as it arrives (an agent runs this under its background monitor; --once prints what is waiting, then exits)
+npx framery stop             end the studio (and a watcher) properly; safe when nothing runs
 npx framery tools            every tool and what it does
 npx framery cmd <tool> '{}'  run a tool from a shell
 npx framery render           previews, anchor boxes, autoHeight heights

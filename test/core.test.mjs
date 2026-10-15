@@ -519,6 +519,137 @@ test('doctor: a fresh init is in step; a stale skill is reported; a newer data f
   assert.throws(() => store.project(name), /newer framery/);
 });
 
+test('notes: add pins a comment to a screen element, list shows it, resolve removes it', async () => {
+  const { call, store, project } = scratch();
+  const { item } = await call('add_item', { type: 'frame', title: 'Screen A', src: 'a.html', device: 'phone' });
+  await assert.rejects(call('add_note', { item: 'nope', text: 'x' }), /not a frame/);
+  await assert.rejects(call('add_note', { item: item.id, text: '  ' }), /empty/);
+  const note = await call('add_note', { item: item.id, text: 'make it bigger', selector: '#go-a', anchor: 'go-a', box: [1, 2, 3, 4] });
+  assert.deepEqual(note.box, [1, 2, 3, 4]);
+  assert.deepEqual((await call('list_notes', {})).map((n) => [n.id, n.src, n.text]), [[note.id, 'a.html', 'make it bigger']]);
+  assert.equal((await call('add_note', { item: item.id, text: 'again' })).id, 'n2');
+  await run(store, 'resolve_note', { project, id: note.id });
+  assert.deepEqual((await call('list_notes', {})).map((n) => n.id), ['n2']);
+  await assert.rejects(run(store, 'resolve_note', { project, id: note.id }), /no note/);
+});
+
+test('notes: a question waits for an answer, which comes back as part of the note', async () => {
+  const { call, store, project } = scratch();
+  const { item } = await call('add_item', { type: 'frame', title: 'Screen A', src: 'a.html', device: 'phone' });
+  const note = await call('add_note', { item: item.id, text: 'invert it' });
+  const ask = (tool, args) => run(store, tool, { project, ...args });
+  await assert.rejects(ask('reply_note', { id: note.id, text: 'x' }), /asked nothing/);
+  assert.equal((await ask('ask_note', { id: note.id, question: 'which way?' })).question, 'which way?');
+  const answered = await ask('reply_note', { id: note.id, text: 'back to blue' });
+  assert.equal(answered.question, undefined);
+  assert.match(answered.text, /invert it\n\nQ: which way\?\nA: back to blue/);
+});
+
+test('chat: a message waits until the agent replies; watch --once prints it and ends', async () => {
+  const { store, project } = scratch();
+  const ask = (tool, args) => run(store, tool, { project, ...args });
+  await assert.rejects(ask('send_chat', { text: '  ' }), /empty/);
+  const sent = await ask('send_chat', { text: 'make the title bigger', page: 'flows', selected: 'home' });
+  assert.deepEqual([sent.role, sent.page, sent.selected], ['user', 'flows', 'home']);
+  assert.deepEqual((await ask('list_chat', {})).pending, [sent.id]);
+
+  const cli = fileURLToPath(new URL('../bin/framery.mjs', import.meta.url));
+  const out = await new Promise((resolve, reject) => {
+    const child = spawn(process.execPath, [cli, 'watch', '--once', '--data', store.root]);
+    let text = '';
+    child.stdout.on('data', (chunk) => (text += chunk));
+    child.on('exit', () => resolve(text));
+    setTimeout(() => (child.kill(), reject(new Error('watch --once did not end'))), 8000);
+  });
+  assert.match(out, /^CHAT c1 \[page flows, selected home\]: make the title bigger/);
+
+  await ask('reply_chat', { text: 'done' });
+  assert.deepEqual((await ask('list_chat', {})).pending, []);
+  assert.deepEqual((await ask('list_chat', {})).messages.map((m) => m.role), ['user', 'agent']);
+});
+
+test('layout: check_layout finds boxes on top of each other, and layout_flow will not break the board', async () => {
+  const { call } = scratch();
+  const add = (id, x, y) => call('add_item', { type: 'frame', id, title: id, src: 'a.html', device: 'phone', x, y });
+  await add('p', 0, 0);
+  await add('q', 100, 100);
+  assert.match((await call('check_layout', {})).problems.join(), /p overlaps q/);
+  await call('move_items', { ids: ['q'], dx: 1000, dy: 0 });
+  assert.deepEqual((await call('check_layout', {})).problems, []);
+
+  // a flow with a failure branch: laying it out puts the failure under its screen, which would grow the group onto 'c'
+  for (const [id, x] of [['a', 3000], ['b', 3530], ['d', 4060]]) await add(id, x, 0);
+  await add('c', 3000, 1100);
+  await call('group_items', { ids: ['a', 'b', 'd'], title: 'G' });
+  await call('connect', { from: 'a', to: 'b', tone: 'positive' });
+  await call('connect', { from: 'a', to: 'd', tone: 'negative' });
+  const at = (await call('get_page', {})).items.find((i) => i.id === 'd');
+  await assert.rejects(call('layout_flow', { group: 'g' }), /would break the board/);
+  const now = (await call('get_page', {})).items.find((i) => i.id === 'd');
+  assert.deepEqual([now.x, now.y], [at.x, at.y], 'nothing was moved');
+});
+
+test('check_design: a screen that loads a file that is not there is reported', async () => {
+  const { call, store, project } = scratch();
+  await call('add_item', { type: 'frame', id: 'a', title: 'A', src: 'a.html', device: 'phone' });
+  assert.ok(!(await call('check_design', {})).problems.some((p) => /does not exist/.test(p.problem)));
+  writeFileSync(join(store.dir(project), 'a.html'), '<link rel="stylesheet" href="missing.css"><link rel="stylesheet" href="https://x.test/a.css"><body>hi</body>');
+  const { problems } = await call('check_design', {});
+  assert.deepEqual(problems.filter((p) => /does not exist/.test(p.problem)).map((p) => p.problem), ['a.html loads missing.css, which does not exist, so the page renders without it']);
+});
+
+test('an older project (no notes or chat, caches from before) works unchanged, and comments stay out of the undo trail', async () => {
+  const { call, store, project } = scratch();
+  await call('add_item', { type: 'frame', id: 'a', title: 'A', src: 'a.html', device: 'phone' });
+  // what 0.4.1 left in the cache: measured, but with no overflow or collapsed fields
+  mkdirSync(join(store.dir(project), '.cache', 'anchors'), { recursive: true });
+  writeFileSync(join(store.dir(project), '.cache', 'anchors', 'a.json'), JSON.stringify({ src: 1, deps: 1, w: 390, h: 844, anchors: {}, parts: {}, contrast: [] }));
+  assert.equal(existsSync(join(store.dir(project), 'notes.json')), false);
+  assert.deepEqual(await call('list_notes', {}), []);
+  assert.deepEqual(await run(store, 'list_chat', { project }), { messages: [], pending: [] });
+  const design = await call('check_design', {});
+  assert.deepEqual(design.problems, [], 'no false alarms from the fields the old cache lacks');
+  assert.deepEqual(design.unmeasured, ['a'], 'it asks for one render instead');
+  assert.deepEqual((await call('check_layout', {})).problems, []);
+
+  // comments and chat are not design: a restore leaves them alone
+  const note = await call('add_note', { item: 'a', text: 'keep me' });
+  await run(store, 'send_chat', { project, text: 'hello' });
+  await run(store, 'checkpoint', { project, label: 'with a note' });
+  await call('move_items', { ids: ['a'], dx: 50 });
+  await run(store, 'restore', { project, n: 1 });
+  assert.deepEqual((await call('list_notes', {})).map((n) => n.id), [note.id], 'restoring the design leaves the comments');
+  assert.equal((await run(store, 'list_chat', { project })).messages.length, 1);
+});
+
+test('stop: asks a running studio to close, clears what a dead process left, and is safe when nothing runs', async () => {
+  const { store } = scratch();
+  const { stop } = await import('../src/process.mjs');
+  assert.deepEqual(await stop(store.root), [], 'nothing running');
+
+  // a pid file from a process that is gone is cleared, not obeyed
+  mkdirSync(join(store.root, '.cache'), { recursive: true });
+  writeFileSync(join(store.root, '.cache', 'studio.json'), JSON.stringify({ url: 'http://127.0.0.1:1', pid: 2147483646 }));
+  assert.deepEqual((await stop(store.root)).map((s) => s.how), ['stale']);
+  assert.equal(existsSync(join(store.root, '.cache', 'studio.json')), false);
+
+  // a studio that is running is asked, over its own address, to close; it forgets its address file
+  let ended = 0;
+  const studio = serve({ root: store.root, port: 4950, autoRender: false, quiet: true, exit: () => ended++ });
+  await new Promise((ok) => studio.once('listening', ok));
+  const at = studio.address().port;
+  assert.ok(existsSync(join(store.root, '.cache', 'studio.json')));
+  // a page that is not the studio's own cannot stop it
+  const foreign = await fetch(`http://127.0.0.1:${at}/api/stop`, { method: 'POST', headers: { 'content-type': 'application/json', origin: 'http://evil.test' }, body: '{}' });
+  assert.equal(foreign.status, 400);
+  assert.equal(ended, 0);
+  const done = await stop(store.root);
+  assert.deepEqual(done.map((s) => s.how), ['asked']);
+  await new Promise((ok) => setTimeout(ok, 300));
+  assert.equal(ended, 1, 'the studio was asked to end');
+  assert.equal(existsSync(join(store.root, '.cache', 'studio.json')), false);
+});
+
 test('tooltips: the text comes from the title, else the label; the tip stays in the window and flips below when there is no room', async () => {
   const { tipText, tipSpot } = await import('../ui/panels/tooltip.js');
   const el = (attrs) => ({ getAttribute: (k) => attrs[k] ?? null, dataset: { tip: attrs.tip } });
