@@ -28,6 +28,10 @@ come from you.
 5. A page can hold a **table** (a plan, a matrix). `outline` prints it as a grid, one line per row, so
    "which flows are built?" is `outline {page: "plan"}`.
 6. `list_tokens` — the design values (`--paper`, `--ink`, …) the frames use.
+7. `list_notes` — comments the person pinned to a screen or an element in the studio's player
+   ("fix this", "make this bigger"). Each names the frame, its `src` file, the element (`anchor` or
+   `selector`, plus its `html` and visible `label`) and the comment. Treat them as the task: edit exactly
+   that element, then `resolve_note {id}`. Check them when the person says "see my comments" or similar.
 
 Descriptions are the product intent, written for whoever builds the screen. Read the group description
 for the flow's rules and each frame's description for that state. Build to them; if a frame and its

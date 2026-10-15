@@ -518,3 +518,16 @@ test('doctor: a fresh init is in step; a stale skill is reported; a newer data f
   assert.match(doctor({ dir: root }).problems.join(), /newer framery/);
   assert.throws(() => store.project(name), /newer framery/);
 });
+
+test('notes: add pins a comment to a screen element, list shows it, resolve removes it', async () => {
+  const { call, store, project } = scratch();
+  const { item } = await call('add_item', { type: 'frame', title: 'Screen A', src: 'a.html', device: 'phone' });
+  await assert.rejects(call('add_note', { item: 'nope', text: 'x' }), /not a frame/);
+  await assert.rejects(call('add_note', { item: item.id, text: '  ' }), /empty/);
+  const note = await call('add_note', { item: item.id, text: 'make it bigger', selector: '#go-a', anchor: 'go-a' });
+  assert.deepEqual((await call('list_notes', {})).map((n) => [n.id, n.src, n.text]), [[note.id, 'a.html', 'make it bigger']]);
+  assert.equal((await call('add_note', { item: item.id, text: 'again' })).id, 'n2');
+  await run(store, 'resolve_note', { project, id: note.id });
+  assert.deepEqual((await call('list_notes', {})).map((n) => n.id), ['n2']);
+  await assert.rejects(run(store, 'resolve_note', { project, id: note.id }), /no note/);
+});

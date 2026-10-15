@@ -301,3 +301,14 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .player__way--positive { color: var(--pos); border-color: var(--pos); }
 .player__way--negative { color: var(--neg); border-color: var(--neg); }
 .player__end { color: var(--ink-soft); }
+
+/* comment mode in the player */
+.player__comment[aria-pressed="true"] { color: var(--accent); background: var(--hover); }
+.player__pins { position: absolute; inset: 0; pointer-events: none; }
+.player__pin { position: absolute; pointer-events: auto; width: 22px; height: 22px; padding: 0; border-radius: 50%; border: 2px solid #fff; background: var(--accent); color: var(--accent-ink); font: 600 11px/1 inherit; cursor: pointer; }
+.player__pop { position: fixed; z-index: 10; width: 280px; box-sizing: border-box; padding: 10px; display: grid; gap: 8px; border-radius: 12px; background: var(--surface); color: inherit; box-shadow: 0 0 0 1px var(--edge), var(--float); }
+.player__pop-input { width: 100%; box-sizing: border-box; resize: vertical; font: inherit; }
+.player__pop-text { margin: 0; white-space: pre-wrap; }
+.player__pop-msg { margin: 0; color: #b3261e; font-size: 12px; }
+.player__pop-msg:empty { display: none; }
+.player__pop-row { display: flex; justify-content: flex-end; gap: 8px; }
