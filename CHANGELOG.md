@@ -15,6 +15,8 @@ Studio:
   the agent; it knows which screen is selected. The studio says whether the agent has a request, asked a question (amber pin), or
   nobody is watching. Comments and chat island: a second island beside the zoom bar.
 - Notes and chat live in `notes.json` and `chat.json` in the project, created on first use. They are not design: the undo trail ignores them.
+- Tooltips on the floating tool islands (the zoom bar and the comments and chat island): a styled label above the button after a short hover,
+  at once on keyboard focus, in place of the browser's slow native one. The words are the button's title or label.
 
 New tools and commands:
 - `list_notes`, `resolve_note`, `ask_note`, `reply_note`, `add_note`; `send_chat`, `list_chat`, `reply_chat`; `check_layout`.
