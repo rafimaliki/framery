@@ -49,16 +49,20 @@
       <div class="world" id="world"></div>
       <svg class="arrows" id="arrows"></svg>
     </div>
-    <div class="zoombar" id="zoombar">
-      <button class="warn-btn" id="arrow-warn" type="button" hidden></button>
-      <button class="icon-btn" id="arrows-mode" type="button" aria-label="Which arrows to show"></button>
-      <button class="icon-btn" id="comment-mode" type="button" aria-pressed="false" aria-label="Comment on a screen" title="Comment: click a part of a screen to leave a note for the agent"></button>
-      <button class="icon-btn" id="comments-vis" type="button" aria-label="Show or hide comments"></button>
-      <button class="icon-btn" id="chat-btn" type="button" aria-expanded="false" aria-label="Chat with the agent" title="Chat with the agent"></button>
-      <button class="icon-btn" id="zoom-out" type="button" aria-label="Zoom out"></button>
-      <button class="zoom-pct" id="zoom-pct" type="button" aria-label="Zoom to 100 percent">100%</button>
-      <button class="icon-btn" id="zoom-in" type="button" aria-label="Zoom in"></button>
-      <button class="icon-btn" id="zoom-fit" type="button" aria-label="Fit everything"></button>
+    <div class="dock">
+      <div class="zoombar" id="zoombar">
+        <button class="warn-btn" id="arrow-warn" type="button" hidden></button>
+        <button class="icon-btn" id="arrows-mode" type="button" aria-label="Which arrows to show"></button>
+        <button class="icon-btn" id="zoom-out" type="button" aria-label="Zoom out"></button>
+        <button class="zoom-pct" id="zoom-pct" type="button" aria-label="Zoom to 100 percent">100%</button>
+        <button class="icon-btn" id="zoom-in" type="button" aria-label="Zoom in"></button>
+        <button class="icon-btn" id="zoom-fit" type="button" aria-label="Fit everything"></button>
+      </div>
+      <div class="zoombar" id="collab" role="group" aria-label="Comments and chat">
+        <button class="icon-btn" id="comment-mode" type="button" aria-pressed="false" aria-label="Comment on a screen" title="Comment: click a part of a screen to leave a note for the agent"></button>
+        <button class="icon-btn" id="comments-vis" type="button" aria-label="Show or hide comments"></button>
+        <button class="icon-btn" id="chat-btn" type="button" aria-expanded="false" aria-label="Chat with the agent" title="Chat with the agent"></button>
+      </div>
     </div>
     <p class="agent-status" id="agent-status" role="status" hidden></p>
     <section class="chat" id="chat" hidden aria-label="Chat with the agent"></section>

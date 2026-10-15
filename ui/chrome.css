@@ -141,11 +141,9 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .stage { position: relative; overflow: hidden; min-width: 0; margin: 10px 10px 10px 0; border-radius: 20px; background: var(--bg); box-shadow: 0 0 0 1px var(--edge); }
 .menu-btn { display: none; position: absolute; top: 10px; left: 10px; z-index: 6; background: var(--surface); border: 1px solid var(--edge); border-radius: 999px; box-shadow: var(--float); }
 
-.zoombar {
-  position: absolute; left: 50%; bottom: 18px; z-index: 5; display: flex; align-items: center; gap: 2px; padding: 4px;
-  background: var(--surface); border: 1px solid var(--edge); border-radius: 999px; box-shadow: var(--float);
-  transform: translateX(-50%); animation: lift var(--dur-slow) var(--ease) both;
-}
+/* the floating islands: the view's tools, and beside them comments and chat */
+.dock { position: absolute; left: 50%; bottom: 18px; z-index: 5; display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 8px; width: max-content; max-width: calc(100% - 20px); transform: translateX(-50%); animation: lift var(--dur-slow) var(--ease) both; }
+.zoombar { display: flex; align-items: center; gap: 2px; padding: 4px; background: var(--surface); border: 1px solid var(--edge); border-radius: 999px; box-shadow: var(--float); }
 .zoombar[hidden] { display: none; }
 .zoombar .icon-btn, .zoombar .zoom-pct { border-radius: 999px; }
 .zoom-pct { min-width: 58px; height: 34px; font: 700 13px var(--font-mono); }
@@ -244,7 +242,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
   .stage { margin: 0; border-radius: 0; box-shadow: none; }
   .menu-btn { display: inline-grid; }
   .inspector { top: auto; bottom: 76px; left: 10px; right: 10px; width: auto; max-height: 52dvh; }
-  .zoombar { bottom: 12px; }
+  .dock { bottom: 12px; }
 }
 
 /* ---- export ---------------------------------------------------------------------------------- */
