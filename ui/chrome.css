@@ -154,9 +154,12 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .warn-btn:active { transform: scale(0.94); }
 .warn-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 
+/* the right-hand column: the detail panel on top and the chat under it, one stack that shares the height (the
+   detail panel scrolls when the chat is open) instead of two floating boxes that could land on each other */
+.rail { position: absolute; top: 14px; right: 14px; bottom: 74px; z-index: 7; width: min(var(--insp-w), calc(100% - 28px)); display: flex; flex-direction: column; gap: 12px; pointer-events: none; }
+.rail > * { pointer-events: auto; }
 .inspector {
-  position: absolute; top: 14px; right: 14px; z-index: 6; width: min(var(--insp-w), calc(100% - 28px));
-  display: flex; flex-direction: column; min-height: 0; max-height: calc(100% - 96px);
+  display: flex; flex-direction: column; min-height: 0; flex: 0 1 auto;
   background: var(--surface); border: 1px solid var(--edge); border-radius: 16px; box-shadow: var(--float);
   animation: slide-in var(--dur) var(--ease) both;
 }
@@ -241,7 +244,6 @@ button { font: inherit; color: inherit; cursor: pointer; }
   .side { background: var(--chrome); }
   .stage { margin: 0; border-radius: 0; box-shadow: none; }
   .menu-btn { display: inline-grid; }
-  .inspector { top: auto; bottom: 76px; left: 10px; right: 10px; width: auto; max-height: 52dvh; }
   .dock { bottom: 12px; }
 }
 
@@ -301,14 +303,18 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .player__end { color: var(--ink-soft); }
 
 /* the chat with the agent */
-/* the chat takes the lower left and the detail panel the upper right, so they never meet; on a narrow window the chat is a sheet and wins */
-.chat { position: absolute; left: 14px; bottom: 74px; z-index: 7; width: min(340px, calc(100% - 28px)); max-height: min(520px, calc(100% - 100px)); display: flex; flex-direction: column; border-radius: 16px; background: var(--surface); box-shadow: 0 0 0 1px var(--edge), 0 12px 36px rgba(22, 22, 26, 0.22); animation: pop-in var(--dur) var(--spring) both; transform-origin: 0 100%; }
+/* the chat sits on the right under the detail panel, which gives up the room (it scrolls); on a narrow area the chat is a sheet and wins */
+.stage { --chat-h: min(380px, 42%); }
+.chat { flex: 0 0 auto; margin-top: auto; height: var(--chat-h); display: flex; flex-direction: column; border-radius: 16px; background: var(--surface); box-shadow: 0 0 0 1px var(--edge), 0 12px 36px rgba(22, 22, 26, 0.22); animation: pop-in var(--dur) var(--spring) both; transform-origin: 100% 100%; }
 .chat[hidden] { display: none; }
+.rail:has(.inspector:not([hidden])) .chat { margin-top: 0; }
 .chat__head { display: flex; align-items: center; justify-content: space-between; padding: 10px 8px 6px 14px; font-size: 13px; }
 .chat__list { flex: 1; min-height: 120px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding: 6px 14px; }
 .chat__msg { max-width: 85%; padding: 8px 12px; border-radius: 14px; font-size: 14px; line-height: 1.4; white-space: pre-wrap; overflow-wrap: anywhere; }
 .chat__msg--user { align-self: flex-end; background: var(--accent); color: var(--accent-ink); border-bottom-right-radius: 4px; }
 .chat__msg--agent { align-self: flex-start; background: var(--bg-2); border-bottom-left-radius: 4px; }
+.chat__ctx { margin: 0; padding: 0 14px 4px; font-size: 12px; color: var(--ink-soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.chat__ctx:empty { display: none; }
 .chat__status { margin: 0; padding: 0 14px; min-height: 18px; font-size: 12px; color: var(--ink-soft); }
 .chat__status[data-state="work"]::before { content: ""; display: inline-block; width: 7px; height: 7px; margin-right: 6px; border-radius: 50%; background: var(--accent); animation: agent-work 1.8s ease-out infinite; }
 .chat__status[data-state="idle"] { color: #8a5a00; }
@@ -370,6 +376,9 @@ button { font: inherit; color: inherit; cursor: pointer; }
 
 /* a canvas area too narrow for the chat and the detail panel side by side (the sidebar takes its share of the window, so this is about the area, not the window): the chat is a sheet along the bottom and the detail panel steps aside while it is open. After the chat rules above, which it overrides. */
 @container (max-width: 820px) {
-  .chat { left: 10px; right: 10px; width: auto; bottom: 70px; max-height: min(60dvh, calc(100% - 80px)); }
+  .rail { left: 10px; right: 10px; top: auto; bottom: 76px; width: auto; }
+  .inspector { max-height: 52dvh; }
+  .chat { height: auto; max-height: 60dvh; }
   .stage:has(.chat:not([hidden])) .inspector { display: none; }
 }
+.rail:has(.chat:not([hidden])) .inspector__body { -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 28px), transparent); mask-image: linear-gradient(to bottom, #000 calc(100% - 28px), transparent); } /* the detail panel scrolls under the chat: fade its cut edge */

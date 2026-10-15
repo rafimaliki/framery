@@ -21,6 +21,7 @@ const MAX_ENTRIES = 500; // beyond these, the oldest entries fold into the basel
 const MAX_BYTES = 50 * 1024 * 1024;
 const MAX_FILE = 5 * 1024 * 1024; // bigger files are not versioned
 const SKIP_DIRS = new Set(['.cache', 'exports', '.history', 'node_modules']);
+const SKIP_FILES = new Set(['notes.json', 'chat.json']); // comments and chat are not design
 
 const hashOf = (buffer) => createHash('sha1').update(buffer).digest('hex');
 const paths = (store, project) => {
@@ -42,7 +43,7 @@ function scan(dir) {
       if (entry.isDirectory()) {
         if (folder === dir && SKIP_DIRS.has(entry.name)) continue;
         walk(full);
-      } else if (!/\.tmp$/.test(entry.name)) {
+      } else if (!/\.tmp$/.test(entry.name) && !(folder === dir && SKIP_FILES.has(entry.name))) {
         const info = statSync(full);
         if (info.size > MAX_FILE) continue;
         const stamp = `${info.size}:${info.mtimeMs}`;

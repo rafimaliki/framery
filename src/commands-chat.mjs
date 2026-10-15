@@ -14,6 +14,7 @@ const load = (store, name) => (existsSync(file(store, name)) ? readJson(file(sto
 // The person's messages since the agent last spoke.
 export const pending = (messages) => messages.slice(messages.findLastIndex((m) => m.role === 'agent') + 1).filter((m) => m.role === 'user');
 
+// ponytail: read, append, write with no lock: two writers within the same few milliseconds can drop one message. A lock file if that ever shows.
 function add(store, a, role, extra = {}) {
   const name = store.name(a.project);
   const text = String(a.text ?? '').trim();

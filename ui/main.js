@@ -113,11 +113,12 @@ function paintStatus(list = state.notes.filter((n) => n.page === state.pageId)) 
       ? `Sent to the agent · ${working} comment${working > 1 ? 's' : ''} in progress`
       : 'Nobody is watching for comments · ask the agent, or run: npx framery watch';
 }
-setInterval(async () => {
-  if (!state.notes.length && !chat.isOpen()) return; // nothing is waiting on an agent
+const beat = async () => {
   const now = await api.watching();
   if (now !== watching) ((watching = now), paintStatus(), chat.show(state.chat, watching));
-}, 4000);
+};
+beat(); // not after the first note or message: that would say nobody is watching for a few seconds
+setInterval(beat, 4000);
 bus.on('chat', (messages) => chat.show(messages, watching));
 
 // Comments on this page: shown when the person wants them or is writing one.
@@ -161,6 +162,8 @@ bus.on('page', ({ page, fresh }) => {
 
 bus.on('select', ({ sel, focus }) => {
   detailClosed = false;
+  const picked = sel?.kind === 'item' ? session.item(sel.id) : null;
+  chat.setContext(picked ? [picked.step, picked.title ?? picked.id].filter(Boolean).join(' ') : '');
   canvas.select(sel, { focus });
   layers.select(sel);
   if (sel && state.page) inspector.show(sel);

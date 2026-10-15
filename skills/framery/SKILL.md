@@ -108,6 +108,10 @@ Conventions that keep the board readable:
   with no size (invisible: an inline element ignores width and height), and a page wider than its frame. Open the
   preview (`.cache/frames/<id>.webp`) of every new frame and look at it before you say it is done. A sheet or screen
   that is blank or half drawn is a bug to fix, not a result to report.
+- **Polish with Impeccable when the project has it** (`npx impeccable install` is the person's choice: never install it
+  yourself). After the checks above pass, run `/impeccable audit` on the new or changed screens, fix what it reports,
+  then `/impeccable polish`. It judges taste (hierarchy, type, spacing, generic-looking output); `check_design` stays
+  the gate for what is mechanically broken. Do both.
 - **Run `check_layout {page}` after adding or moving screens**, next to `check_arrows`: groups or screens lying
   on top of each other, or a screen outside its group, must be empty.
 - **A group is one flow.** Frames inside it read left to right; its description holds the flow's rules.

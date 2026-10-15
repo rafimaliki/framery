@@ -31,14 +31,20 @@ export function createCanvasNotes(world, view, { project, frameRev, page, liveDo
         new Promise((resolve, reject) => {
           const el = h('iframe', { tabindex: '-1', 'aria-hidden': 'true', src: api.file(project(), frame.src, frameRev()) });
           el.style.cssText = `position:fixed;left:-99999px;top:0;width:${frame.w}px;height:${frame.h}px;border:0;opacity:0`;
-          el.addEventListener('load', () => resolve(el.contentDocument));
-          el.addEventListener('error', () => (hidden.delete(frame.id), el.remove(), reject(new Error(`could not open ${frame.src}`))));
+          // an iframe fires no error event for a page that fails to load, so a missing screen would wait forever
+          const timer = setTimeout(() => (hidden.delete(frame.id), el.remove(), reject(new Error(`${frame.src} did not load`))), 5000);
+          el.addEventListener('load', () => (clearTimeout(timer), resolve(el.contentDocument)));
           document.body.append(el);
         }),
       );
     }
     return hidden.get(frame.id);
   }
+
+  const forget = () => {
+    for (const doc of hidden.values()) doc.then((d) => d.defaultView?.frameElement?.remove(), () => {});
+    hidden.clear();
+  };
 
   // The element at a point in the screen, never the whole document.
   function elementAt(doc, x, y) {
@@ -86,10 +92,7 @@ export function createCanvasNotes(world, view, { project, frameRev, page, liveDo
     set(next) {
       notes = next.list;
       visible = next.visible;
-      if (active && !next.commenting) {
-        for (const doc of hidden.values()) doc.then((d) => d.defaultView?.frameElement?.remove(), () => {});
-        hidden.clear();
-      }
+      if (active && !next.commenting) forget();
       active = next.commenting;
       view.toggleAttribute('data-commenting', active);
       popup.close();
@@ -97,6 +100,8 @@ export function createCanvasNotes(world, view, { project, frameRev, page, liveDo
       mark(null);
     },
     paint,
+    // the screens changed on disk: the hidden pages would answer from the old html
+    reset: forget,
 
     // A pin was tapped: read it, or delete it.
     read(pin) {

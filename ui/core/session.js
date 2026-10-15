@@ -24,13 +24,19 @@ async function loadComponents() {
 
 // The comments people pinned to screens (notes.json), for the whole project.
 async function loadNotes() {
-  state.notes = await api.command('list_notes', { project: state.project }).catch(() => []);
+  const project = state.project;
+  const list = await api.command('list_notes', { project }).catch(() => []);
+  if (project !== state.project) return; // the person switched projects while this loaded
+  state.notes = list;
   bus.emit('notes', state.notes);
 }
 
 // The studio chat (chat.json): what was said, oldest first.
 async function loadChat() {
-  state.chat = await api.command('list_chat', { project: state.project }).then((r) => r.messages, () => []);
+  const project = state.project;
+  const messages = await api.command('list_chat', { project }).then((r) => r.messages, () => []);
+  if (project !== state.project) return;
+  state.chat = messages;
   bus.emit('chat', state.chat);
 }
 

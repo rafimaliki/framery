@@ -296,6 +296,7 @@ export function createCanvas({ view: viewEl, world: worldEl, arrows: svg }, deps
     // A frame's html or the project's css/js changed on disk.
     framesChanged(paths) {
       frameRev = Date.now();
+      notes.reset();
       world.reload(paths);
     },
   };

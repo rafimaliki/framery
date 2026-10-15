@@ -15,11 +15,13 @@ const unanswered = (messages) => {
 export function createChat({ button, panel }, { send }) {
   button.innerHTML = icon.chat;
   const list = h('div', { class: 'chat__list', role: 'log', 'aria-live': 'polite' });
+  const ctx = h('p', { class: 'chat__ctx' });
   const status = h('p', { class: 'chat__status', role: 'status' });
   const input = h('textarea', { class: 'chat__input', rows: 1, placeholder: 'Ask for a change…', 'aria-label': 'Message to the agent' });
   const submit = h('button', { class: 'note-pop__send', type: 'button', disabled: true }, 'Send');
   panel.replaceChildren(
     h('header', { class: 'chat__head' }, h('strong', null, 'Chat with the agent'), h('button', { class: 'icon-btn', type: 'button', 'aria-label': 'Close chat', onclick: () => set(false), html: icon.close })),
+    ctx,
     list,
     status,
     h('div', { class: 'chat__form' }, input, submit),
@@ -85,6 +87,8 @@ export function createChat({ button, panel }, { send }) {
       watching = isWatching;
       if (!panel.hidden) paint();
     },
+    // the selected screen, which goes with each message so "this" means something
+    setContext: (text) => (ctx.textContent = text ? `About: ${text}` : ''),
     isOpen: () => !panel.hidden,
   };
 }

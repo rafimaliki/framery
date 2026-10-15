@@ -601,11 +601,11 @@ export const commands = {
         }
         const seen = measured(frame.id);
         // an instance with no size is invisible, and a page wider than its frame is cut off
-        for (const [component, boxes] of Object.entries(seen?.parts ?? {})) {
-          if (boxes.some(([, , w, h]) => w < 1 || h < 1)) problems.push({ item: frame.id, problem: `an instance of "${component}" in ${frame.src} renders with no size, so it is invisible (an inline element ignores width and height: give it display: inline-block or block)` });
+        for (const component of seen?.collapsed ?? []) {
+          problems.push({ item: frame.id, problem: `an instance of "${component}" in ${frame.src} renders with no size, so it is invisible (an inline element ignores width and height: give it display: inline-block or block)` });
         }
         if (seen?.overflow > 1) problems.push({ item: frame.id, problem: `${frame.src} is ${seen.overflow}px wider than its frame, so content is cut off or scrolls sideways` });
-        if (seen && seen.overflow === undefined) unmeasured.add(frame.id);
+        if (seen && (seen.overflow === undefined || seen.collapsed === undefined)) unmeasured.add(frame.id);
         const found = measured(frame.id)?.contrast;
         if (!found) unmeasured.add(frame.id);
         const said = new Set(); // the same text in the same colours, said once per frame
