@@ -518,3 +518,31 @@ test('doctor: a fresh init is in step; a stale skill is reported; a newer data f
   assert.match(doctor({ dir: root }).problems.join(), /newer framery/);
   assert.throws(() => store.project(name), /newer framery/);
 });
+
+test('stop: asks a running studio to close, clears what a dead process left, and is safe when nothing runs', async () => {
+  const { store } = scratch();
+  const { stop } = await import('../src/process.mjs');
+  assert.deepEqual(await stop(store.root), [], 'nothing running');
+
+  // a pid file from a process that is gone is cleared, not obeyed
+  mkdirSync(join(store.root, '.cache'), { recursive: true });
+  writeFileSync(join(store.root, '.cache', 'studio.json'), JSON.stringify({ url: 'http://127.0.0.1:1', pid: 2147483646 }));
+  assert.deepEqual((await stop(store.root)).map((s) => s.how), ['stale']);
+  assert.equal(existsSync(join(store.root, '.cache', 'studio.json')), false);
+
+  // a studio that is running is asked, over its own address, to close; it forgets its address file
+  let ended = 0;
+  const studio = serve({ root: store.root, port: 4950, autoRender: false, quiet: true, exit: () => ended++ });
+  await new Promise((ok) => studio.once('listening', ok));
+  const at = studio.address().port;
+  assert.ok(existsSync(join(store.root, '.cache', 'studio.json')));
+  // a page that is not the studio's own cannot stop it
+  const foreign = await fetch(`http://127.0.0.1:${at}/api/stop`, { method: 'POST', headers: { 'content-type': 'application/json', origin: 'http://evil.test' }, body: '{}' });
+  assert.equal(foreign.status, 400);
+  assert.equal(ended, 0);
+  const done = await stop(store.root);
+  assert.deepEqual(done.map((s) => s.how), ['asked']);
+  await new Promise((ok) => setTimeout(ok, 300));
+  assert.equal(ended, 1, 'the studio was asked to end');
+  assert.equal(existsSync(join(store.root, '.cache', 'studio.json')), false);
+});
