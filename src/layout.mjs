@@ -35,6 +35,23 @@ export function withMembers(page, ids) {
 // The top edge gets extra room: a frame's caption sits above it, and a caption must stay inside its group.
 const CAPTION = 32;
 
+// Where a board is broken, as sentences: top-level items (a group counts as one) that overlap, a member
+// outside its group, two members of one group on top of each other.
+export function collisions(page) {
+  const hit = (p, q) => p.x < q.x + q.w && p.x + p.w > q.x && p.y < q.y + q.h && p.y + p.h > q.y;
+  const out = [];
+  const pairs = (list, where) => {
+    for (let a = 0; a < list.length; a++) for (let b = a + 1; b < list.length; b++) if (hit(list[a], list[b])) out.push(`${where}: ${list[a].id} overlaps ${list[b].id}`);
+  };
+  pairs(page.items.filter((i) => !i.parent), 'top level');
+  for (const group of page.items.filter((i) => i.type === 'group')) {
+    const kids = page.items.filter((i) => i.parent === group.id);
+    pairs(kids, `in ${group.id}`);
+    for (const k of kids) if (k.x < group.x || k.y < group.y || k.x + k.w > group.x + group.w || k.y + k.h > group.y + group.h) out.push(`${k.id} sticks out of ${group.id}`);
+  }
+  return out;
+}
+
 export function fitGroup(page, id, padding = 48) {
   const group = find(page, id);
   const inside = members(page, id);

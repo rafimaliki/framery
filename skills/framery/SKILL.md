@@ -95,6 +95,16 @@ Conventions that keep the board readable:
   and fix every problem before you finish. Move items first: the happy path in one row, a state or a
   failure directly under the screen it belongs to, and nothing standing between two connected items.
   Only when moving cannot fix it, set `fromSide`/`toSide` with `update_arrow`. Never leave a crossing.
+- **Every thing has one page.** A flow page (the app, onboarding, …) holds product screens only. The design
+  system page holds tokens, components and their sheets (`component_sheet`): a sheet goes there, inside its
+  `components` group (`parent` set, placed beside or under the other sheets), never on a flow page. Check the
+  page id of every `add_item`/`move_to_page` before you send it.
+- **Never re-lay a flow someone arranged.** `layout_flow` is for a flow you are building from nothing. To add a
+  screen to an existing flow, give it `x`,`y` and `parent` by hand, next to the screen it follows (a state or a
+  branch goes under it), and leave every other screen where it is. `layout_flow` now refuses, changing nothing,
+  when it would make anything overlap.
+- **Run `check_layout {page}` after adding or moving screens**, next to `check_arrows`: groups or screens lying
+  on top of each other, or a screen outside its group, must be empty.
 - **A group is one flow.** Frames inside it read left to right; its description holds the flow's rules.
 - **Descriptions are short and specific.** What the frame is, then the rule it must keep. No restating
   what the picture shows.

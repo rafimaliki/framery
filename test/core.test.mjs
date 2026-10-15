@@ -567,3 +567,24 @@ test('chat: a message waits until the agent replies; watch --once prints it and 
   assert.deepEqual((await ask('list_chat', {})).pending, []);
   assert.deepEqual((await ask('list_chat', {})).messages.map((m) => m.role), ['user', 'agent']);
 });
+
+test('layout: check_layout finds boxes on top of each other, and layout_flow will not break the board', async () => {
+  const { call } = scratch();
+  const add = (id, x, y) => call('add_item', { type: 'frame', id, title: id, src: 'a.html', device: 'phone', x, y });
+  await add('p', 0, 0);
+  await add('q', 100, 100);
+  assert.match((await call('check_layout', {})).problems.join(), /p overlaps q/);
+  await call('move_items', { ids: ['q'], dx: 1000, dy: 0 });
+  assert.deepEqual((await call('check_layout', {})).problems, []);
+
+  // a flow with a failure branch: laying it out puts the failure under its screen, which would grow the group onto 'c'
+  for (const [id, x] of [['a', 3000], ['b', 3530], ['d', 4060]]) await add(id, x, 0);
+  await add('c', 3000, 1100);
+  await call('group_items', { ids: ['a', 'b', 'd'], title: 'G' });
+  await call('connect', { from: 'a', to: 'b', tone: 'positive' });
+  await call('connect', { from: 'a', to: 'd', tone: 'negative' });
+  const at = (await call('get_page', {})).items.find((i) => i.id === 'd');
+  await assert.rejects(call('layout_flow', { group: 'g' }), /would break the board/);
+  const now = (await call('get_page', {})).items.find((i) => i.id === 'd');
+  assert.deepEqual([now.x, now.y], [at.x, at.y], 'nothing was moved');
+});
