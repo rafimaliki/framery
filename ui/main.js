@@ -13,6 +13,7 @@ import { createInspector } from './panels/inspector.js';
 import { createLayers } from './panels/layers.js';
 import { createHistory } from './panels/history.js';
 import { createSettingsMenu } from './panels/settings-menu.js';
+import { createSplit } from './panels/split.js';
 import { createSidebar } from './panels/sidebar.js';
 import { createFinder } from './panels/finder.js';
 import { createPlayer, flowStart } from './panels/player.js';
@@ -59,9 +60,10 @@ const chat = createChat(
   { send: (text) => api.command('send_chat', { project: state.project, text, page: state.pageId, selected: state.sel?.kind === 'item' ? state.sel.id : undefined }).then(() => session.loadChat()) },
 );
 const sidebar = createSidebar(
-  { app: $('app'), side: $('side'), pages: $('pages'), projects: $('projects'), menu: $('menu'), close: $('side-close') },
+  { app: $('app'), side: $('side'), pages: $('pages'), pagesBox: $('pages-box'), pagesToggle: $('pages-toggle'), pagesCount: $('pages-count'), projects: $('projects'), menu: $('menu'), close: $('side-close') },
   { onNavigate: (route) => navigate(route) },
 );
+createSplit({ side: $('side'), bar: $('split'), pagesBox: $('pages-box'), layersToggle: $('layers-toggle') });
 const layers = createLayers({ box: $('layers-box'), list: $('layers'), search: $('search'), toggleAll: $('layers-all') }, { onPick: (sel) => session.select(sel) });
 const inspector = createInspector($('inspector'), {
   page: () => state.page,

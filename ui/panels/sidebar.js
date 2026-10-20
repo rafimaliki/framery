@@ -5,10 +5,11 @@ import { h, icon } from '../core/dom.js';
 
 const SMALL = matchMedia('(max-width: 820px)');
 const KEY = 'framery.sidebar';
+const FOLD = 'framery.side.pages';
 
 // On a wide screen the rail folds to an icon strip to give the canvas room; on a small one it is a
 // drawer over the canvas. One button each way, so the header's button does whichever applies.
-export function createSidebar({ app, side, pages, projects, menu, close }, { onNavigate }) {
+export function createSidebar({ app, side, pages, pagesBox, pagesToggle, pagesCount, projects, menu, close }, { onNavigate }) {
   menu.innerHTML = icon.menu;
   close.innerHTML = icon.sidebar;
   const read = () => {
@@ -50,6 +51,28 @@ export function createSidebar({ app, side, pages, projects, menu, close }, { onN
   SMALL.addEventListener('change', paint);
   paint();
 
+  // The Pages eyebrow folds the list to the current page, so the layers can have the full height.
+  let folded = false;
+  try {
+    folded = localStorage.getItem(FOLD) === 'folded';
+  } catch {
+    // not remembered
+  }
+  const paintFold = () => {
+    pagesBox.toggleAttribute('data-folded', folded);
+    pagesToggle.setAttribute('aria-expanded', String(!folded));
+  };
+  pagesToggle.addEventListener('click', () => {
+    folded = !folded;
+    try {
+      localStorage.setItem(FOLD, folded ? 'folded' : 'open');
+    } catch {
+      // not remembered
+    }
+    paintFold();
+  });
+  paintFold();
+
   function link(project, id, title, glyph) {
     const go = () => {
       setDrawer(false);
@@ -65,6 +88,7 @@ export function createSidebar({ app, side, pages, projects, menu, close }, { onN
       projects.replaceChildren(...all.map((p) => h('option', { value: p.name, selected: p.name === name }, p.title ?? p.name)));
       projects.onchange = () => onNavigate({ project: projects.value });
       pages.replaceChildren(...(info.pages ?? []).map((p) => link(name, p.id, p.title, icon.page)));
+      pagesCount.textContent = String(info.pages?.length ?? 0);
     },
 
     current(pageId) {
@@ -72,6 +96,7 @@ export function createSidebar({ app, side, pages, projects, menu, close }, { onN
         if (button.dataset.page === pageId) button.setAttribute('aria-current', 'page');
         else button.removeAttribute('aria-current');
       }
+      pages.querySelector('[aria-current]')?.scrollIntoView({ block: 'nearest' });
     },
 
     closeDrawer: () => SMALL.matches && setDrawer(false),

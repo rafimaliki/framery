@@ -26,10 +26,16 @@
       <button class="icon-btn side__close" id="side-close" type="button" aria-label="Hide sidebar" title="Hide sidebar ( [ )"></button>
     </div>
     <select class="projects" id="projects" aria-label="Project" hidden></select>
-    <nav class="pages" id="pages" aria-label="Pages"></nav>
+    <div class="pages-box" id="pages-box">
+      <button class="pages-box__head" id="pages-toggle" type="button" aria-expanded="true" title="Fold the page list to the current page">
+        <span class="eyebrow">Pages</span><span class="page-link__count" id="pages-count"></span>
+      </button>
+      <nav class="pages" id="pages" aria-label="Pages"></nav>
+    </div>
+    <div class="split" id="split" role="separator" aria-orientation="horizontal" tabindex="0" aria-label="Resize pages and layers" title="Drag to resize. Double-click resets."></div>
     <div class="layers" id="layers-box">
       <div class="layers__head">
-        <span class="eyebrow">Layers</span>
+        <button class="pages-box__head layers__toggle" id="layers-toggle" type="button" aria-expanded="true" title="Fold the layers to give the pages the full height"><span class="eyebrow">Layers</span></button>
         <button class="text-btn layers__all" id="layers-all" type="button" hidden>Collapse all</button>
         <input class="search" id="search" title="Filter this page. / or Ctrl+K finds on every page." type="search" placeholder="Filter" aria-label="Filter layers" autocomplete="off">
       </div>
