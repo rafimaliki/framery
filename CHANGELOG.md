@@ -3,7 +3,7 @@
 Releases are git tags (`v0.1.0`). Nothing updates by itself: you pick a version, see "Updating" in the README.
 A release that changes the data format says so here and ships its migration; until then every project is format 1.
 
-## Unreleased
+## 0.6.0
 
 Install, per coding agent. The data format is still 1 and nothing needs migrating.
 
