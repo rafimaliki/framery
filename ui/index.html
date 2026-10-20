@@ -32,9 +32,10 @@
       </button>
       <nav class="pages" id="pages" aria-label="Pages"></nav>
     </div>
+    <div class="split" id="split" role="separator" aria-orientation="horizontal" tabindex="0" aria-label="Resize pages and layers" title="Drag to resize. Double-click resets."></div>
     <div class="layers" id="layers-box">
       <div class="layers__head">
-        <span class="eyebrow">Layers</span>
+        <button class="pages-box__head layers__toggle" id="layers-toggle" type="button" aria-expanded="true" title="Fold the layers to give the pages the full height"><span class="eyebrow">Layers</span></button>
         <button class="text-btn layers__all" id="layers-all" type="button" hidden>Collapse all</button>
         <input class="search" id="search" title="Filter this page. / or Ctrl+K finds on every page." type="search" placeholder="Filter" aria-label="Filter layers" autocomplete="off">
       </div>

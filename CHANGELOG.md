@@ -6,9 +6,11 @@ A release that changes the data format says so here and ships its migration; unt
 ## Unreleased
 
 Studio:
-- The sidebar copes with a project of many pages: the page list is capped at 40% of the sidebar and scrolls on its own, the layer
+- The sidebar copes with a project of many pages: the page list is capped at half of the sidebar and scrolls on its own, the layer
   tree keeps at least 35%, page rows are tighter, and a "Pages" header with a count folds the list to the current page (remembered).
-  The current page is scrolled into view. No data change.
+  The current page is scrolled into view. The page list may take up to half the sidebar by default; a draggable divider
+  (arrow keys when focused, double-click resets) moves that, and the "Layers" header folds the tree so the pages get the full height.
+  All remembered. No data change.
 
 ## 0.5.0
 
