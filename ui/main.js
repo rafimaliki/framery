@@ -59,7 +59,7 @@ const chat = createChat(
   { send: (text) => api.command('send_chat', { project: state.project, text, page: state.pageId, selected: state.sel?.kind === 'item' ? state.sel.id : undefined }).then(() => session.loadChat()) },
 );
 const sidebar = createSidebar(
-  { app: $('app'), side: $('side'), pages: $('pages'), projects: $('projects'), menu: $('menu'), close: $('side-close') },
+  { app: $('app'), side: $('side'), pages: $('pages'), pagesBox: $('pages-box'), pagesToggle: $('pages-toggle'), pagesCount: $('pages-count'), projects: $('projects'), menu: $('menu'), close: $('side-close') },
   { onNavigate: (route) => navigate(route) },
 );
 const layers = createLayers({ box: $('layers-box'), list: $('layers'), search: $('search'), toggleAll: $('layers-all') }, { onPick: (sel) => session.select(sel) });

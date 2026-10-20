@@ -3,6 +3,13 @@
 Releases are git tags (`v0.1.0`). Nothing updates by itself: you pick a version, see "Updating" in the README.
 A release that changes the data format says so here and ships its migration; until then every project is format 1.
 
+## Unreleased
+
+Studio:
+- The sidebar copes with a project of many pages: the page list is capped at 40% of the sidebar and scrolls on its own, the layer
+  tree keeps at least 35%, page rows are tighter, and a "Pages" header with a count folds the list to the current page (remembered).
+  The current page is scrolled into view. No data change.
+
 ## 0.5.0
 
 Comments, chat and render safety. Upgrading from 0.4.x needs no migration: the data format is still 1, and every
