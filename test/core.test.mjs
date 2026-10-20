@@ -3,7 +3,7 @@
 
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
@@ -29,7 +29,7 @@ const PKG = fileURLToPath(new URL('..', import.meta.url));
 // A scratch project with two real frames, so tests never touch the shipped data.
 function scratch() {
   const root = mkdtempSync(join(tmpdir(), 'framery-test-'));
-  init({ dir: root });
+  init({ dir: root, agents: 'claude' });
   const store = new Store(join(root, 'framery'));
   const [project] = store.projects();
   for (const name of ['a', 'b']) writeFileSync(join(store.dir(project), `${name}.html`), `<body><button id="go-${name}">Go</button></body>`);
@@ -447,15 +447,63 @@ test('MCP: initialize, list tools, call one, report an error as isError', async 
   }
 });
 
-test('init wires skills for both agents, an MCP entry and an empty project; twice is safe', () => {
+test('init wires only the chosen agents, an MCP entry and an empty project; twice is safe', () => {
   const root = mkdtempSync(join(tmpdir(), 'framery-init-'));
   writeFileSync(join(root, '.mcp.json'), JSON.stringify({ mcpServers: { other: { command: 'x' } } }));
-  init({ dir: root });
+  init({ dir: root, agents: 'claude,omp' });
   init({ dir: root });
   for (const dir of ['.claude/skills/framery', '.omp/skills/framery']) assert.ok(existsSync(join(root, dir, 'SKILL.md')), dir);
+  for (const dir of ['.agents', '.codex', 'CLAUDE.md']) assert.ok(!existsSync(join(root, dir)), `${dir} was not asked for`);
   const mcp = JSON.parse(readFileSync(join(root, '.mcp.json'), 'utf8'));
   assert.ok(mcp.mcpServers.other && mcp.mcpServers.framery, 'existing servers are kept');
   assert.equal(new Store(join(root, 'framery')).projects().length, 1);
+  assert.deepEqual(init({ dir: root }).agents, ['claude', 'omp'], 'the choice is remembered');
+  assert.throws(() => init({ dir: root, agents: 'cursor' }), /--agents takes/);
+});
+
+test('init for codex writes the Codex skill and a TOML server and keeps what was in it', () => {
+  const root = mkdtempSync(join(tmpdir(), 'framery-init-'));
+  mkdirSync(join(root, '.codex'));
+  writeFileSync(join(root, '.codex/config.toml'), 'model = "x"\n\n[mcp_servers.framery]\ncommand = "old"\nargs = []\n\n[mcp_servers.other]\ncommand = "y"\n');
+  const { wrote, skipped } = init({ dir: root, agents: 'codex' });
+  init({ dir: root, agents: 'codex' });
+  const toml = readFileSync(join(root, '.codex/config.toml'), 'utf8');
+  assert.equal(toml.match(/\[mcp_servers\.framery\]/g).length, 1, 'replaced, not duplicated');
+  assert.match(toml, /model = "x"[\s\S]*\[mcp_servers\.other\][\s\S]*"mcp"/);
+  assert.ok(!toml.includes('"old"'));
+  assert.ok(existsSync(join(root, '.agents/skills/framery/SKILL.md')));
+  assert.ok(!existsSync(join(root, '.claude')) && !existsSync(join(root, '.mcp.json')) && !existsSync(join(root, '.omp')));
+  assert.deepEqual(skipped, ['claude', 'omp']);
+  assert.ok(wrote.some((w) => /codex/.test(w)));
+});
+
+test('init with no flag picks what is there, never all, and claude when nothing shows', () => {
+  const path = process.env.PATH;
+  process.env.PATH = ''; // no agent CLI counts
+  try {
+    const none = mkdtempSync(join(tmpdir(), 'framery-init-'));
+    assert.deepEqual(init({ dir: none }).agents, ['claude']);
+    const some = mkdtempSync(join(tmpdir(), 'framery-init-'));
+    mkdirSync(join(some, '.agents'));
+    assert.deepEqual(init({ dir: some }).agents, ['codex']);
+  } finally {
+    process.env.PATH = path;
+  }
+});
+
+test('init --global writes to the home folder and leaves the repo alone', () => {
+  const repo = mkdtempSync(join(tmpdir(), 'framery-repo-'));
+  const home = mkdtempSync(join(tmpdir(), 'framery-home-'));
+  writeFileSync(join(home, '.claude.json'), JSON.stringify({ theme: 'dark' }));
+  const { wrote } = init({ dir: repo, agents: 'claude,omp', global: true, home });
+  assert.deepEqual(readdirSync(repo), [], 'nothing in the repo');
+  assert.ok(existsSync(join(home, '.claude/skills/framery/SKILL.md')) && existsSync(join(home, '.omp/agent/skills/framery/SKILL.md')));
+  const claude = JSON.parse(readFileSync(join(home, '.claude.json'), 'utf8'));
+  assert.equal(claude.theme, 'dark');
+  assert.deepEqual(claude.mcpServers.framery.args, ['framery', 'mcp', '--data', join(repo, 'framery')], 'npx and an absolute data path');
+  assert.ok(wrote.some((w) => /omp: no user-level MCP/.test(w)));
+  assert.equal(doctor({ dir: repo, agents: 'claude', global: true, home }).problems.filter((p) => !/project/.test(p)).length, 0);
+  assert.equal(doctor({ dir: repo, agents: 'codex', global: true, home }).problems.some((p) => /codex: no skill/.test(p)), true);
 });
 
 test('history: one prompt is one entry, restore goes back and can itself be undone, outside edits are caught', async () => {
@@ -493,14 +541,31 @@ test('history: one prompt is one entry, restore goes back and can itself be undo
   assert.equal(read(), moved, 'and undoing the undo redoes it');
 });
 
+test('doctor checks only the chosen agents: no .omp needed, and a missing or stale choice is named', () => {
+  const root = mkdtempSync(join(tmpdir(), 'framery-doctor-'));
+  assert.match(doctor({ dir: root }).problems[0], /no skill installed.*framery init/, 'nothing at all keeps the hint');
+  init({ dir: root, agents: 'claude,codex' });
+  assert.equal(doctor({ dir: root }).ok, true, 'only .claude and .agents');
+  rmSync(join(root, '.agents'), { recursive: true });
+  assert.match(doctor({ dir: root }).problems.join(), /codex: no skill in \.agents\/skills/);
+  init({ dir: root });
+  rmSync(join(root, '.codex'), { recursive: true });
+  assert.match(doctor({ dir: root }).problems.join(), /codex: no framery entry in \.codex\/config\.toml/);
+  // a project made by 0.5.x: skills in .claude and .omp, nothing recorded, still ok
+  const old = mkdtempSync(join(tmpdir(), 'framery-doctor-'));
+  init({ dir: old, agents: 'claude,omp' });
+  rmSync(join(old, 'framery/config.json'));
+  assert.equal(doctor({ dir: old }).ok, true);
+});
+
 test('doctor: a fresh init is in step; a stale skill is reported; a newer data format is refused', () => {
   const root = mkdtempSync(join(tmpdir(), 'framery-doctor-'));
-  init({ dir: root });
+  init({ dir: root, agents: 'claude' });
   assert.equal(doctor({ dir: root }).ok, true);
   writeFileSync(join(root, '.claude/skills/framery/SKILL.md'), 'old');
   const stale = doctor({ dir: root });
   assert.ok(!stale.ok && /another version/.test(stale.problems[0]));
-  init({ dir: root });
+  init({ dir: root, agents: 'claude' });
   assert.equal(doctor({ dir: root }).ok, true, 'init refreshes it');
 
   const base = new Store(join(root, 'framery'));

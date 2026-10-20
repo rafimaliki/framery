@@ -3,6 +3,22 @@
 Releases are git tags (`v0.1.0`). Nothing updates by itself: you pick a version, see "Updating" in the README.
 A release that changes the data format says so here and ships its migration; until then every project is format 1.
 
+## Unreleased
+
+Install, per coding agent. The data format is still 1 and nothing needs migrating.
+
+- `framery init --agents claude,codex,omp` writes the skill and MCP server for those agents only. With no flag it uses the
+  agents already in the folder or on your PATH, and claude when there are none; never all of them. The choice is saved in
+  `framery/config.json`. `init` prints what it wrote and what it skipped, and never writes a `CLAUDE.md`.
+- Codex is supported: skill in `.agents/skills/`, server in `.codex/config.toml`.
+- `framery init --global` puts the skill and server in your home folder and leaves the repo untouched, for design repos that
+  commit no agent files.
+- `framery doctor` checks only the chosen agents (`--agents`, `--global`), so a project with just `.claude` and `.agents` is ok.
+
+Changes you may notice:
+- `init` no longer installs `.omp/skills` unless omp is chosen or detected. A project that already has it keeps it: run
+  `framery init` once to record the choice.
+
 ## 0.5.1
 
 Studio:

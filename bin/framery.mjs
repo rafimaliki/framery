@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// framery [serve] | mcp | init | doctor | version | render | watch [--once] | stop | cmd <name> [json] | tools     (--data DIR, --port N)
+// framery [serve] | mcp | init | doctor | version | render | watch [--once] | stop | cmd <name> [json] | tools     (--data DIR, --port N; init, doctor: --agents claude,codex,omp, --global)
 
 import { resolve } from 'node:path';
 import { Store, FramError } from '../src/store.mjs';
@@ -45,10 +45,10 @@ try {
     (await import('../src/mcp.mjs')).mcp({ root: dataRoot() });
   } else if (command === 'init') {
     const { init } = await import('../src/init.mjs');
-    console.log(JSON.stringify(init({ dir: flag('dir') ?? '.', data }), null, 2));
+    console.log(JSON.stringify(init({ dir: flag('dir') ?? '.', data, agents: flag('agents'), global: has('global') }), null, 2));
   } else if (command === 'doctor') {
     const { doctor } = await import('../src/doctor.mjs');
-    const report = doctor({ dir: flag('dir') ?? '.', data: data ?? 'framery' });
+    const report = doctor({ dir: flag('dir') ?? '.', data: data ?? 'framery', agents: flag('agents'), global: has('global') });
     console.log(JSON.stringify(report, null, 2));
     process.exit(report.ok ? 0 : 1);
   } else if (command === 'version' || command === '--version') {
