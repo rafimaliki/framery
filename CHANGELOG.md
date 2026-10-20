@@ -3,7 +3,7 @@
 Releases are git tags (`v0.1.0`). Nothing updates by itself: you pick a version, see "Updating" in the README.
 A release that changes the data format says so here and ships its migration; until then every project is format 1.
 
-## Unreleased
+## 0.5.1
 
 Studio:
 - The sidebar copes with a project of many pages: the page list is capped at half of the sidebar and scrolls on its own, the layer
