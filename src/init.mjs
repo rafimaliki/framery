@@ -1,30 +1,56 @@
-// `framery init`: the one deliberate step that wires a project to framery. It copies the skills into
-// the places agents look (.claude/skills, .omp/skills), registers the MCP server in .mcp.json, keeps the
-// generated folders out of git, and makes an empty data folder (framery/) when there is none. Safe to
-// run again: it refreshes, never duplicates.
+// `framery init`: the one deliberate step that wires a project to framery. It copies the skill into the
+// folders of the chosen coding agents only (see agents.mjs), registers the MCP server for them, keeps the
+// generated folders out of git, and makes an empty data folder (framery/) when there is none. With
+// `global` it puts the skill and server in the person's home folder instead and leaves the repo alone.
+// Safe to run again: it refreshes, never duplicates.
 
 import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { homedir } from 'node:os';
 import { basename, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { FORMAT, Store, writeJson } from './store.mjs';
+import { AGENTS, detect, parseAgents, writeMcp } from './agents.mjs';
+import { FORMAT, Store, readJson, writeJson } from './store.mjs';
 
 const PKG = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const slash = (path) => path.split(sep).join('/');
 
-export function init({ dir = '.', data } = {}) {
+// The agents a project chose, kept beside its projects so doctor checks the same ones.
+export const chosenAgents = (root) => (existsSync(join(root, 'config.json')) ? readJson(join(root, 'config.json')).agents : undefined);
+
+function copySkills(to) {
+  const skills = join(PKG, 'skills');
+  for (const name of readdirSync(skills)) {
+    rmSync(join(to, name), { recursive: true, force: true });
+    cpSync(join(skills, name), join(to, name), { recursive: true });
+  }
+}
+
+export function init({ dir = '.', data, agents, global = false, home = homedir() } = {}) {
   const project = resolve(dir);
   const root = resolve(project, data ?? 'framery');
   const rel = slash(relative(project, root)) || '.';
   const done = [];
+  const picked = agents ? parseAgents(agents) : (!global && chosenAgents(root)) || detect(project);
+  const skipped = Object.keys(AGENTS).filter((a) => !picked.includes(a));
 
-  const skills = join(PKG, 'skills');
-  for (const target of ['.claude/skills', '.omp/skills']) {
-    for (const name of readdirSync(skills)) {
-      const to = join(project, target, name);
-      rmSync(to, { recursive: true, force: true });
-      cpSync(join(skills, name), to, { recursive: true });
+  if (global) {
+    // in the home folder: run by npx and an absolute data path, so nothing depends on a repo's node_modules
+    const server = { command: 'npx', args: ['framery', 'mcp', '--data', root] };
+    for (const name of picked) {
+      const at = AGENTS[name].home;
+      copySkills(join(home, at.skills));
+      done.push(`${name}: skills -> ~/${at.skills}`);
+      if (at.mcp) {
+        writeMcp(join(home, at.mcp), server);
+        done.push(`${name}: MCP -> ~/${at.mcp} (npx framery mcp --data ${root})`);
+      } else done.push(`${name}: no user-level MCP file known, add the server by hand (npx framery mcp --data ${root})`);
     }
-    done.push(`skills -> ${target}`);
+    return { global: true, data: root, agents: picked, wrote: done, skipped };
+  }
+
+  for (const name of picked) {
+    copySkills(join(project, AGENTS[name].skills));
+    done.push(`${name}: skills -> ${AGENTS[name].skills}`);
   }
 
   const store = new Store(root);
@@ -43,11 +69,11 @@ export function init({ dir = '.', data } = {}) {
   const server = PKG.startsWith(project + sep)
     ? { command: 'node', args: [slash(relative(project, join(PKG, 'bin', 'framery.mjs'))), 'mcp', '--data', rel] }
     : { command: 'npx', args: ['framery', 'mcp', '--data', rel] };
-  const file = join(project, '.mcp.json');
-  const config = existsSync(file) ? JSON.parse(readFileSync(file, 'utf8')) : {};
-  config.mcpServers = { ...config.mcpServers, framery: server };
-  writeFileSync(file, JSON.stringify(config, null, 2) + '\n');
-  done.push('.mcp.json');
+  for (const file of new Set(picked.map((name) => AGENTS[name].mcp))) {
+    writeMcp(join(project, file), server);
+    done.push(`MCP -> ${file}`);
+  }
+  writeJson(join(root, 'config.json'), { agents: picked });
 
   // generated, never design data: previews and measurements, exports, the undo trail's blobs
   const ignore = join(project, '.gitignore');
@@ -58,5 +84,5 @@ export function init({ dir = '.', data } = {}) {
     done.push('.gitignore');
   }
 
-  return { dir: project, data: root, wrote: done };
+  return { dir: project, data: root, agents: picked, wrote: done, skipped };
 }

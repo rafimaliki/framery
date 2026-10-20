@@ -75,11 +75,42 @@ Then open <http://127.0.0.1:4173> (if that port is busy, the studio takes the ne
 
 `init` does four things, and is safe to run again:
 
-1. Copies the **framery skill** into `.claude/skills/` and `.omp/skills/`, so your agent already knows how to
-   operate the board. Claude Code, omp and anything that reads `AGENTS.md`-style skills pick it up.
-2. Registers the **MCP server** in `.mcp.json` (existing entries are kept). Restart your agent once so it connects.
+1. Copies the **framery skill** into the folders of the agents you use, and only those (table below), so your agent
+   already knows how to operate the board.
+2. Registers the **MCP server** for them (existing entries are kept). Restart your agent once so it connects.
 3. Adds the generated folders (`.cache`, `exports`, `.history`) to `.gitignore`.
 4. Creates `framery/<your-project>/` with an empty project, if there is none.
+
+It prints what it wrote and which agents it skipped. It never writes a `CLAUDE.md`.
+
+### Choosing agents
+
+```sh
+npx framery init --agents claude,codex     # only these
+npx framery init                           # no flag: the agents already in this folder or on your PATH, else claude
+```
+
+| `--agents` | Skill folder | MCP server | Instructions |
+|---|---|---|---|
+| `claude` | `.claude/skills/` | `.mcp.json` | `AGENTS.md` |
+| `codex` | `.agents/skills/` | `.codex/config.toml` (Codex trusts the project first) | `AGENTS.md` |
+| `omp` | `.omp/skills/` | `.mcp.json` | `AGENTS.md` |
+
+The choice is saved in `framery/config.json`, so a bare `npx framery init` repeats it and `doctor` checks those agents.
+The skill folders are generated copies: refresh them with `init`, do not edit them.
+
+### A design repo with no agent files in it
+
+```sh
+npx framery init --global --agents claude,codex
+```
+
+This puts the skill and the MCP server in your own home folder (`~/.claude/skills` and `~/.claude.json`,
+`~/.agents/skills` and `~/.codex/config.toml`, `~/.omp/agent/skills`) and leaves the repo alone. The server is
+`npx framery mcp --data <absolute path>`, so it does not depend on the repo's `node_modules`. omp has no user-level
+MCP file we know of: `init` prints the line to add by hand. Check it with `npx framery doctor --global --agents claude`.
+Put one line in the repo's `AGENTS.md` for the next person: *the framery skill is installed per user, run
+`npx framery init --global`*.
 
 From then on, ask your agent: *"Design the sign-in flow in framery"*, *"connect these screens"*,
 *"add a plan page and mark home as built"*, *"undo that"*.
@@ -114,8 +145,8 @@ npx framery doctor                                        # confirm
 ```text
 npx framery                  start the studio on http://127.0.0.1:4173 or the next free port (--port N: that port or fail; --no-render)
 npx framery mcp              the stdio MCP server (registered for you by init)
-npx framery init             wire a project; safe to repeat
-npx framery doctor           check versions and wiring
+npx framery init             wire a project; safe to repeat (--agents claude,codex,omp; --global for your home folder)
+npx framery doctor           check versions and wiring (the chosen agents only)
 npx framery watch            print each comment and chat message from the studio as it arrives (an agent runs this under its background monitor; --once prints what is waiting, then exits)
 npx framery stop             end the studio (and a watcher) properly; safe when nothing runs
 npx framery tools            every tool and what it does

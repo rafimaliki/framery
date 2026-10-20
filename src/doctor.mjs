@@ -3,8 +3,11 @@
 // install another version, run `framery init` to refresh the skills, run doctor to confirm.
 
 import { existsSync, readFileSync } from 'node:fs';
+import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { AGENTS, hasMcp, parseAgents } from './agents.mjs';
+import { chosenAgents } from './init.mjs';
 import { FORMAT, Store, readJson } from './store.mjs';
 
 const PKG = resolve(fileURLToPath(new URL('..', import.meta.url)));
@@ -12,17 +15,22 @@ export const version = () => JSON.parse(readFileSync(join(PKG, 'package.json'), 
 
 const same = (a, b) => existsSync(a) && existsSync(b) && readFileSync(a, 'utf8') === readFileSync(b, 'utf8');
 
-export function doctor({ dir = '.', data = 'framery' } = {}) {
+// The agents to check: the ones named, else the ones the project recorded, else the ones with a skill folder.
+export function doctor({ dir = '.', data = 'framery', agents, global = false, home = homedir() } = {}) {
   const project = resolve(dir);
   const problems = [];
+  const base = global ? home : project;
+  const at = (name) => (global ? AGENTS[name].home : AGENTS[name]);
+  const names = agents ? parseAgents(agents) : (!global && chosenAgents(resolve(project, data))) || Object.keys(AGENTS).filter((n) => existsSync(join(base, at(n).skills, 'framery')));
+  if (!names.length) problems.push(`no skill installed for any agent: run framery init${global ? ' --global' : ''}`);
   const skill = join(PKG, 'skills', 'framery', 'SKILL.md');
-  for (const target of ['.claude/skills', '.omp/skills']) {
-    const have = join(project, target, 'framery', 'SKILL.md');
-    if (!existsSync(have)) problems.push(`no skill in ${target}: run framery init`);
-    else if (!same(skill, have)) problems.push(`the skill in ${target} is from another version: run framery init`);
+  for (const name of names) {
+    const { skills, mcp } = at(name);
+    const have = join(base, skills, 'framery', 'SKILL.md');
+    if (!existsSync(have)) problems.push(`${name}: no skill in ${skills}: run framery init`);
+    else if (!same(skill, have)) problems.push(`${name}: the skill in ${skills} is from another version: run framery init`);
+    if (mcp && !hasMcp(join(base, mcp))) problems.push(`${name}: no framery entry in ${mcp}: run framery init`);
   }
-  const mcp = join(project, '.mcp.json');
-  if (!existsSync(mcp) || !JSON.parse(readFileSync(mcp, 'utf8')).mcpServers?.framery) problems.push('no framery entry in .mcp.json: run framery init');
 
   const root = resolve(project, data);
   const projects = existsSync(root) ? new Store(root).projects() : [];
