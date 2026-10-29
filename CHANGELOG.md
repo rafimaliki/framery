@@ -3,6 +3,11 @@
 Releases are git tags (`v0.1.0`). Nothing updates by itself: you pick a version, see "Updating" in the README.
 A release that changes the data format says so here and ships its migration; until then every project is format 1.
 
+## 0.6.1
+
+Studio:
+- Copy an export to the clipboard: a Copy button next to Export in the detail panel. PNG copies as an image at the chosen scale, SVG as its source text, WebP as PNG. PDF has no copy, and the button hides when the browser has no clipboard API. The export icon is centered. No data change.
+
 ## 0.6.0
 
 Install, per coding agent. The data format is still 1 and nothing needs migrating.
