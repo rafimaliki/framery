@@ -1,6 +1,7 @@
 // The export controls in the detail panel: a format, a scale, and a button that downloads the selected
-// frame, group or table as a file. The studio server makes the file (src/export.mjs); this is only
-// the form and the download. The last choice is remembered.
+// frame, group or table as a file, or copies it to the clipboard (PNG as an image, SVG as its source text).
+// The studio server makes the file (src/export.mjs); this is only the form, the download and the copy.
+// The last choice is remembered.
 
 import { api } from '../core/api.js';
 import { h, icon } from '../core/dom.js';
@@ -48,11 +49,27 @@ async function download(params) {
   return { name, size: response.headers.get('x-framery-size'), scale: Number(response.headers.get('x-framery-scale')) };
 }
 
+// Copy goes through the same endpoint. The clipboard takes PNG as an image and has no WebP or PDF, so WebP copies as PNG
+// and PDF has no copy. The blob is passed as a promise so the click still counts as the user gesture the clipboard needs.
+async function copy(params) {
+  const asText = params.format === 'svg';
+  const type = asText ? 'text/plain' : 'image/png';
+  const blob = (async () => {
+    const response = await fetch(api.exportUrl({ ...params, format: asText ? 'svg' : 'png' }));
+    if (!response.ok) throw new Error((await response.json().catch(() => ({}))).error ?? `export failed (${response.status})`);
+    const out = await response.blob();
+    return asText ? new Blob([await out.text()], { type }) : out;
+  })();
+  await navigator.clipboard.write([new ClipboardItem({ [type]: blob })]);
+  return asText ? 'SVG source' : 'PNG';
+}
+
 export function exportControls({ project, page, id, what }) {
   const prefs = load();
   const status = h('p', { class: 'export__status' });
   const hint = h('p', { class: 'export__hint' });
   const go = h('button', { class: 'text-btn export__go', type: 'button' });
+  const copyBtn = h('button', { class: 'icon-btn export__copy', type: 'button', title: 'Copy to the clipboard', 'aria-label': 'Copy to the clipboard' });
   const format = segmented({ label: 'Format', options: FORMATS, value: prefs.format, onChange: (value) => change({ format: value }) });
   const scale = segmented({ label: 'Scale', options: SCALES, value: prefs.scale, onChange: (value) => change({ scale: value }) });
   const scaleRow = h('div', { class: 'export__row' }, scale.el);
@@ -64,6 +81,8 @@ export function exportControls({ project, page, id, what }) {
     hint.textContent = prefs.format === 'svg' ? 'SVG embeds a picture of it. PDF keeps text sharp.' : prefs.format === 'pdf' ? 'One page at its own size; text stays text.' : '';
     hint.hidden = !hint.textContent;
     go.replaceChildren(h('span', { html: icon.download }), `Export ${what}`);
+    copyBtn.replaceChildren(h('span', { html: icon.copy }));
+    copyBtn.hidden = prefs.format === 'pdf' || !navigator.clipboard?.write || typeof ClipboardItem === 'undefined';
   }
   function change(patch) {
     Object.assign(prefs, patch);
@@ -90,6 +109,19 @@ export function exportControls({ project, page, id, what }) {
     }
   });
 
+  copyBtn.addEventListener('click', async () => {
+    copyBtn.disabled = true;
+    status.textContent = 'Copying…';
+    try {
+      const what = await copy({ project, page, id, format: prefs.format, scale: prefs.scale, theme: document.documentElement.dataset.theme ?? 'light' });
+      status.textContent = `Copied ${what} to the clipboard`;
+    } catch (error) {
+      status.textContent = error.message || 'Could not copy. The browser may have blocked the clipboard.';
+    } finally {
+      copyBtn.disabled = false;
+    }
+  });
+
   paint();
-  return h('div', { class: 'export' }, h('span', { class: 'eyebrow' }, 'Export'), format.el, scaleRow, hint, go, status);
+  return h('div', { class: 'export' }, h('span', { class: 'eyebrow' }, 'Export'), format.el, scaleRow, hint, h('div', { class: 'export__actions' }, go, copyBtn), status);
 }
