@@ -280,6 +280,12 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .export__go:hover { background: var(--accent); filter: brightness(1.08); }
 .export__go:disabled { opacity: 0.7; cursor: progress; }
 .export__go[data-busy="true"] svg { animation: beat 700ms var(--ease) infinite; }
+.export__actions { display: flex; gap: 8px; }
+.export__actions .export__go { flex: 1; }
+.export__go > span, .export__copy > span { display: inline-flex; align-items: center; justify-content: center; line-height: 0; }
+.export__copy { flex: none; width: 36px; height: 36px; display: inline-flex; align-items: center; justify-content: center; padding: 0; border-radius: var(--r-ctl); border: 1px solid var(--edge); }
+.export__copy[hidden] { display: none; }
+.export__copy:disabled { opacity: 0.7; cursor: progress; }
 .export__status { min-height: 1.2em; margin: 0; color: var(--ink-soft); font-size: 12px; overflow-wrap: anywhere; }
 .export__status:empty { display: none; }
 
